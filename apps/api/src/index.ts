@@ -14,10 +14,14 @@ const env = apiEnvSchema.parse(process.env);
 const app = express();
 app.use(helmet());
 app.use(cors({ origin: env.CORS_ORIGIN }));
-app.use(express.json({ limit: "1mb" }));
 app.use(pinoHttp({ logger }));
 
 app.get("/healthz", (_req, res) => res.json({ ok: true, ts: Date.now() }));
+
+// Mount express.raw BEFORE the JSON parser and scoped only to this prefix.
+
+// JSON parser for the rest of the API.
+app.use(express.json({ limit: "1mb" }));
 app.use("/api/user", userRouter);
 app.use(errorHandler);
 
