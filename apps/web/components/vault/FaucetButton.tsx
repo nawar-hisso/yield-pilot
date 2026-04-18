@@ -1,10 +1,12 @@
 "use client";
 
+import { Coins } from "lucide-react";
+import { toast } from "sonner";
+import { formatUnits } from "viem";
 import { Button } from "../ui/button";
 import { useFaucet } from "../../hooks/useFaucet";
 import { useUsdcBalance } from "../../hooks/useUsdcBalance";
 import { useWallet } from "../../hooks/useWallet";
-import { formatUnits } from "viem";
 import { USDC_DECIMALS } from "../../lib/contracts";
 
 export function FaucetButton() {
@@ -20,18 +22,31 @@ export function FaucetButton() {
     : "—";
 
   return (
-    <div className="flex items-center justify-between rounded-lg border border-border bg-card/40 px-4 py-3">
-      <div>
-        <div className="text-xs text-muted-foreground uppercase tracking-wide">Your mUSDC balance</div>
-        <div className="mt-1 font-medium">{pretty}</div>
+    <div className="flex items-center justify-between rounded-lg border border-accent/20 bg-grad-card px-5 py-3.5">
+      <div className="flex items-center gap-3">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-accent/30 bg-card text-accent">
+          <Coins className="h-4 w-4" strokeWidth={1.75} />
+        </div>
+        <div>
+          <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            Your mUSDC balance
+          </div>
+          <div className="mt-0.5 font-display text-lg font-semibold">{pretty}</div>
+        </div>
       </div>
       <Button
         size="sm"
         variant="outline"
         disabled={isPending || isConfirming}
         onClick={async () => {
-          await claim();
-          await mutate();
+          toast.loading("Claiming 1,000 mUSDC…", { id: "faucet" });
+          try {
+            await claim();
+            await mutate();
+            toast.success("Claimed 1,000 mUSDC", { id: "faucet" });
+          } catch (err) {
+            toast.error("Faucet failed", { id: "faucet", description: (err as Error).message });
+          }
         }}
       >
         {isPending ? "Confirming…" : isConfirming ? "Mining…" : isSuccess ? "+1,000 claimed" : "Claim 1,000 mUSDC"}

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { formatUnits, parseUnits } from "viem";
+import { toast } from "sonner";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { USDC_DECIMALS } from "../../lib/contracts";
@@ -43,20 +44,27 @@ export function DepositForm() {
   async function onClick() {
     if (parsed === null) return;
     setErrorMsg(null);
+    const prettyAmount = `${Number(raw).toLocaleString()} mUSDC`;
     try {
       if (needsApproval) {
         setStatus("Approving USDC…");
+        toast.loading("Approving USDC allowance…", { id: "approve" });
         await approve(parsed);
+        toast.success("Allowance set", { id: "approve" });
         await refetchAllowance();
       }
       setStatus("Depositing…");
+      toast.loading(`Depositing ${prettyAmount}…`, { id: "deposit" });
       await deposit(parsed);
       setStatus("Deposited ✓");
+      toast.success(`Deposited ${prettyAmount}`, { id: "deposit" });
       setRaw("");
       await Promise.all([refetchBalance(), refetchAllowance(), refetchPosition()]);
     } catch (err) {
-      setErrorMsg((err as Error).message);
+      const msg = (err as Error).message;
+      setErrorMsg(msg);
       setStatus(null);
+      toast.error("Deposit failed", { id: "deposit", description: msg });
     }
   }
 

@@ -1,26 +1,25 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { Providers } from "../src/providers/Providers";
-import { AppShell } from "../components/layout/AppShell";
+import { AppLayout } from "../components/layout/AppLayout";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const display = Space_Grotesk({ subsets: ["latin"], variable: "--font-display" });
 
 export const metadata: Metadata = {
   title: "YieldPilot — DeFi Yield Management",
   description: "Deposit, delegate, and track yield strategies from one dashboard.",
 };
 
-// Wallet connect + passkey provider trees rely on browser-only APIs
-// (navigator.credentials, IndexedDB, Reown modal). Skip static generation.
 export const dynamic = "force-dynamic";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`dark ${inter.variable}`}>
+    <html lang="en" className={`dark ${inter.variable} ${display.variable}`}>
       <body>
         <Providers>
-          <AppShell>{children}</AppShell>
+          <AppLayout>{children}</AppLayout>
         </Providers>
       </body>
     </html>

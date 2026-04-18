@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { formatUnits, parseUnits } from "viem";
+import { toast } from "sonner";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { USDC_DECIMALS } from "../../lib/contracts";
@@ -37,15 +38,20 @@ export function WithdrawForm() {
   async function onClick() {
     if (parsed === null) return;
     setErrorMsg(null);
+    const prettyAmount = `${Number(raw).toLocaleString()} mUSDC`;
     try {
       setStatus("Withdrawing…");
+      toast.loading(`Withdrawing ${prettyAmount}…`, { id: "withdraw" });
       await withdraw(parsed);
       setStatus("Withdrew ✓");
+      toast.success(`Withdrew ${prettyAmount}`, { id: "withdraw" });
       setRaw("");
       await Promise.all([refetchPosition(), refetchBalance()]);
     } catch (err) {
-      setErrorMsg((err as Error).message);
+      const msg = (err as Error).message;
+      setErrorMsg(msg);
       setStatus(null);
+      toast.error("Withdraw failed", { id: "withdraw", description: msg });
     }
   }
 

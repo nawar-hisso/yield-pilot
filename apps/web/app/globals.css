@@ -2,8 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
-/* YieldPilot brand — midnight blue primary (#0B1E3B ≈ hsl(218 67% 14%))
-   + cyan accent (#22D3EE ≈ hsl(187 85% 53%)). Dark theme is the default. */
+/*
+ * YieldPilot — crypto-native bold
+ * ───────────────────────────────────────────────
+ * Base hues:  midnight #0B1E3B (primary) · cyan #22D3EE (accent)
+ * Extended:   violet #7C3AED · fuchsia #D946EF · lime #A3E635
+ * Gradient:   cyan → violet → fuchsia (hero + CTA + card accents)
+ * Surfaces:   deeper midnight + subtle cyan noise on panels
+ */
 
 @layer base {
   :root {
@@ -12,6 +18,7 @@
 
     --card: 0 0% 100%;
     --card-foreground: 218 67% 14%;
+    --card-muted: 220 14% 97%;
 
     --popover: 0 0% 100%;
     --popover-foreground: 218 67% 14%;
@@ -30,45 +37,129 @@
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
+    --success: 142 71% 45%;
+    --warning: 38 92% 50%;
 
     --border: 220 13% 88%;
     --input: 220 13% 88%;
     --ring: 187 85% 53%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
+
+    --violet: 263 85% 58%;
+    --fuchsia: 291 84% 61%;
+    --lime: 82 78% 56%;
+
+    --grad-hero: linear-gradient(
+      135deg,
+      hsl(187 85% 53% / 0.85) 0%,
+      hsl(263 85% 58% / 0.85) 55%,
+      hsl(291 84% 61% / 0.85) 100%
+    );
+    --grad-card: linear-gradient(
+      135deg,
+      hsl(187 85% 53% / 0.12) 0%,
+      hsl(263 85% 58% / 0.08) 100%
+    );
+    --grad-stroke: linear-gradient(135deg, hsl(187 85% 53%) 0%, hsl(263 85% 58%) 100%);
   }
 
   .dark {
-    --background: 218 67% 9%;
-    --foreground: 0 0% 96%;
+    --background: 220 40% 6%;
+    --foreground: 0 0% 98%;
 
-    --card: 218 67% 11%;
-    --card-foreground: 0 0% 96%;
+    --card: 220 40% 9%;
+    --card-foreground: 0 0% 98%;
+    --card-muted: 220 40% 12%;
 
-    --popover: 218 67% 11%;
-    --popover-foreground: 0 0% 96%;
+    --popover: 220 40% 7%;
+    --popover-foreground: 0 0% 98%;
 
     --primary: 187 85% 53%;
-    --primary-foreground: 218 67% 14%;
+    --primary-foreground: 220 40% 6%;
 
-    --secondary: 218 40% 18%;
-    --secondary-foreground: 0 0% 96%;
+    --secondary: 218 40% 16%;
+    --secondary-foreground: 0 0% 98%;
 
-    --muted: 218 40% 16%;
-    --muted-foreground: 220 9% 66%;
+    --muted: 218 30% 14%;
+    --muted-foreground: 220 14% 65%;
 
     --accent: 187 85% 53%;
-    --accent-foreground: 218 67% 14%;
+    --accent-foreground: 220 40% 6%;
 
-    --destructive: 0 63% 42%;
-    --destructive-foreground: 0 0% 96%;
+    --destructive: 0 70% 55%;
+    --destructive-foreground: 0 0% 98%;
+    --success: 142 64% 48%;
+    --warning: 38 88% 58%;
 
-    --border: 218 40% 20%;
-    --input: 218 40% 20%;
+    --border: 218 40% 18%;
+    --input: 218 40% 16%;
     --ring: 187 85% 53%;
+
+    --grad-hero: linear-gradient(
+      135deg,
+      hsl(187 85% 53% / 0.85) 0%,
+      hsl(263 85% 58% / 0.9) 55%,
+      hsl(291 84% 61% / 0.85) 100%
+    );
+    --grad-card: linear-gradient(
+      135deg,
+      hsl(187 85% 53% / 0.18) 0%,
+      hsl(263 85% 58% / 0.12) 100%
+    );
+    --grad-stroke: linear-gradient(135deg, hsl(187 85% 53%) 0%, hsl(291 84% 61%) 100%);
   }
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: "cv11", "ss01", "ss03", "cv02";
+    background-image: radial-gradient(
+        circle at 15% -10%,
+        hsl(187 85% 53% / 0.07) 0%,
+        transparent 40%
+      ),
+      radial-gradient(circle at 95% 110%, hsl(263 85% 58% / 0.08) 0%, transparent 45%);
+    background-attachment: fixed;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: -0.02em;
+  }
+}
+
+@layer utilities {
+  .bg-grad-hero {
+    background-image: var(--grad-hero);
+  }
+  .bg-grad-card {
+    background-image: var(--grad-card);
+  }
+  .text-grad {
+    background: var(--grad-stroke);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .border-grad {
+    border: 1px solid transparent;
+    background:
+      linear-gradient(hsl(var(--card)), hsl(var(--card))) padding-box,
+      var(--grad-stroke) border-box;
+  }
+  .shadow-glow {
+    box-shadow: 0 0 0 1px hsl(187 85% 53% / 0.15), 0 12px 40px -16px hsl(187 85% 53% / 0.35);
+  }
+  .shadow-glow-violet {
+    box-shadow: 0 0 0 1px hsl(263 85% 58% / 0.2), 0 16px 48px -18px hsl(263 85% 58% / 0.4);
+  }
+
+  /* Respect reduced-motion */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
