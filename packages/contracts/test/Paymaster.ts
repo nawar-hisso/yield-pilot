@@ -40,17 +40,29 @@ describe("Paymaster", function () {
     await expect(paymaster.connect(verifier).setBudget(target.address, 1n))
       .to.be.revertedWithCustomError(paymaster, "OwnableUnauthorizedAccount");
 
+    await expect(paymaster.connect(verifier).setFactory(target.address, true))
+      .to.be.revertedWithCustomError(paymaster, "OwnableUnauthorizedAccount");
+
+    await expect(paymaster.connect(verifier).setAllowedSender(target.address, true))
+      .to.be.revertedWithCustomError(paymaster, "OwnableUnauthorizedAccount");
+
     // Owner calls succeed.
     await paymaster.connect(deployer).setTarget(target.address, true);
     expect(await paymaster.allowedTargets(target.address)).to.equal(true);
 
     await paymaster.connect(deployer).setBudget(target.address, 100n);
     expect(await paymaster.gasBudget(target.address)).to.equal(100n);
+
+    await paymaster.connect(deployer).setFactory(target.address, true);
+    expect(await paymaster.allowedFactories(target.address)).to.equal(true);
   });
 
   it("getHash returns deterministic output and changes when params change", async function () {
     const { paymaster } = await deployPaymaster();
 
+    // 52 bytes of paymasterAndData = [paymaster(20) | validationGas(16) | postOpGas(16)]
+    // getHash now commits to these fields to prevent bundler rewrites.
+    const paymasterAndData = "0x" + "00".repeat(52);
     const userOp = {
       sender: ethers.ZeroAddress,
       nonce: 0n,
@@ -59,7 +71,7 @@ describe("Paymaster", function () {
       accountGasLimits: "0x" + "00".repeat(32),
       preVerificationGas: 0n,
       gasFees: "0x" + "00".repeat(32),
-      paymasterAndData: "0x",
+      paymasterAndData,
       signature: "0x",
     };
 

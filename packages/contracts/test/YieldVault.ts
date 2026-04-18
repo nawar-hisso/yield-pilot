@@ -23,15 +23,21 @@ describe("YieldVault (skeleton)", function () {
     return { vault, usdc, aave, owner, alice };
   }
 
-  it("assigns 1:1 shares on the first deposit", async function () {
+  it("mints shares scaled by the virtual-shares decimalsOffset on the first deposit", async function () {
     const { vault, usdc, alice } = await deployFixture();
     const deposit = 1_000n * 10n ** 6n;
 
     await usdc.connect(alice).approve(await vault.getAddress(), deposit);
     await vault.connect(alice).deposit(deposit, alice.address);
 
-    expect(await vault.balanceOf(alice.address)).to.equal(deposit);
+    // With _decimalsOffset() = 6 the vault mints assets * 10**6 shares on the
+    // first deposit — the OZ virtual-shares defense that neutralises the
+    // inflation attack on the first depositor.
+    const offset = 10n ** 6n;
+    expect(await vault.balanceOf(alice.address)).to.equal(deposit * offset);
     expect(await vault.totalAssets()).to.equal(deposit);
+    // Round-trip: redeeming all shares returns the original assets.
+    expect(await vault.convertToAssets(deposit * offset)).to.equal(deposit);
   });
 
   it("reports totalAssets as idle + strategy balance", async function () {

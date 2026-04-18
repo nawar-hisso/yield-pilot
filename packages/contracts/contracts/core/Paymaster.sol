@@ -14,9 +14,11 @@ import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/Messa
 ///         (the `apps/api` backend) inspects incoming UserOperations against
 ///         a policy and signs sponsorship approvals. On-chain we:
 ///           * verify the signer matches `verifier`
-///           * enforce an `(vault → cap)` lifetime gas budget as a safety net
-///         The hot path reads only immutables + a single storage word so it
-///         plays well with ERC-7562 bundler rules.
+///           * enforce a `(sender → lifetime cap)` gas budget PRE-execution
+///           * bind sponsorship to a `YieldPilotAccount` factory allow-list
+///             so hostile custom accounts can't spoof `execute()` callData
+///         The hot path reads only paymaster-owned storage keyed by sender,
+///         so it plays well with ERC-7562 bundler rules.
 /// @dev `paymasterAndData` layout (v0.7):
 ///        [0:20]   paymaster address
 ///        [20:36]  paymasterValidationGasLimit (packed)
@@ -30,28 +32,44 @@ contract Paymaster is BasePaymaster {
     /// @notice EOA used by the backend to sign sponsorship approvals.
     address public verifier;
 
-    /// @notice Whitelisted targets. UserOps calling `execute(target, ...)`
-    ///         with a non-whitelisted target are rejected in validate.
+    /// @notice Approved account factories. A UserOp's `sender` must be a clone
+    ///         deployed by one of these factories (enforced via the first 20
+    ///         bytes of `userOp.initCode` on first-tx; after that we fall back
+    ///         to the explicit `allowedSenders` mapping populated on first
+    ///         sponsorship).
+    mapping(address factory => bool allowed) public allowedFactories;
+
+    /// @notice Senders seen on a first-tx with an approved factory's initCode —
+    ///         cached so subsequent UserOps (which have empty `initCode`) still
+    ///         pass the sender check without a factory re-read.
+    mapping(address sender => bool allowed) public allowedSenders;
+
+    /// @notice Whitelisted call targets (e.g., the vault). UserOps calling
+    ///         `execute(target, ...)` with a non-whitelisted target revert.
     mapping(address target => bool allowed) public allowedTargets;
 
-    /// @notice Lifetime sponsored-gas cap per target (wei).
-    mapping(address target => uint256 cap) public gasBudget;
+    /// @notice Lifetime sponsored-gas cap per sender (wei). `0` = no cap set.
+    mapping(address sender => uint256 cap) public gasBudget;
 
-    /// @notice Cumulative sponsored gas per target (wei).
-    mapping(address target => uint256 used) public gasUsed;
+    /// @notice Cumulative sponsored gas per sender (wei).
+    mapping(address sender => uint256 used) public gasUsed;
 
     event VerifierSet(address indexed verifier);
+    event FactoryAllowed(address indexed factory, bool allowed);
+    event SenderAllowed(address indexed sender, bool allowed);
     event TargetWhitelisted(address indexed target, bool allowed);
-    event BudgetSet(address indexed target, uint256 cap);
-    event GasSponsored(address indexed target, address indexed sender, uint256 gasCost);
-    event BudgetOverflow(address indexed target, uint256 used, uint256 cap);
+    event BudgetSet(address indexed sender, uint256 cap);
+    event GasSponsored(address indexed sender, address indexed target, uint256 gasCost);
+    event BudgetOverflow(address indexed sender, uint256 used, uint256 cap);
 
     error Paymaster__TargetNotAllowed(address target);
+    error Paymaster__SenderNotAllowed(address sender);
+    error Paymaster__BudgetExceeded(address sender, uint256 used, uint256 cap, uint256 maxCost);
     error Paymaster__UnsupportedSelector(bytes4 selector);
     error Paymaster__InvalidData();
 
     /// @notice Selector of `YieldPilotAccount.execute(address,uint256,bytes)`.
-    bytes4 public constant EXECUTE_SELECTOR = 0xb61d27f6;
+    bytes4 public constant EXECUTE_SELECTOR = bytes4(keccak256("execute(address,uint256,bytes)"));
 
     uint256 private constant VALID_UNTIL_OFFSET = UserOperationLib.PAYMASTER_DATA_OFFSET; // 52
     uint256 private constant VALID_AFTER_OFFSET = VALID_UNTIL_OFFSET + 6;                   // 58
@@ -71,21 +89,33 @@ contract Paymaster is BasePaymaster {
         emit VerifierSet(v);
     }
 
+    function setFactory(address factory, bool allowed) external onlyOwner {
+        allowedFactories[factory] = allowed;
+        emit FactoryAllowed(factory, allowed);
+    }
+
+    function setAllowedSender(address sender, bool allowed) external onlyOwner {
+        allowedSenders[sender] = allowed;
+        emit SenderAllowed(sender, allowed);
+    }
+
     function setTarget(address target, bool allowed) external onlyOwner {
         allowedTargets[target] = allowed;
         emit TargetWhitelisted(target, allowed);
     }
 
-    function setBudget(address target, uint256 cap) external onlyOwner {
-        gasBudget[target] = cap;
-        emit BudgetSet(target, cap);
+    /// @notice Lifetime cap per sender. Set to `0` to disable enforcement.
+    function setBudget(address sender, uint256 cap) external onlyOwner {
+        gasBudget[sender] = cap;
+        emit BudgetSet(sender, cap);
     }
 
     // ─── Hash to be signed off-chain ────────────────────────────────────────
 
-    /// @notice Hash the paymaster signer approves. The backend recomputes
-    ///         this hash, signs `toEthSignedMessageHash(hash)`, and the
-    ///         signature is included in `paymasterAndData`.
+    /// @notice Hash the paymaster signer approves. Commits to the full v0.7
+    ///         UserOp state PLUS the paymaster's own gas limits (the first
+    ///         52 bytes of `paymasterAndData`) so a bundler can't rewrite
+    ///         them after the signer signs.
     function getHash(PackedUserOperation calldata userOp, uint48 validUntil, uint48 validAfter)
         public
         view
@@ -100,6 +130,7 @@ contract Paymaster is BasePaymaster {
                 userOp.accountGasLimits,
                 userOp.preVerificationGas,
                 userOp.gasFees,
+                keccak256(userOp.paymasterAndData[:UserOperationLib.PAYMASTER_DATA_OFFSET]),
                 block.chainid,
                 address(this),
                 validUntil,
@@ -114,7 +145,7 @@ contract Paymaster is BasePaymaster {
         PackedUserOperation calldata userOp,
         bytes32, /* userOpHash */
         uint256 maxCost
-    ) internal view override returns (bytes memory context, uint256 validationData) {
+    ) internal override returns (bytes memory context, uint256 validationData) {
         // 1. Enforce call shape: only account.execute(target, value, data) is sponsored.
         if (userOp.callData.length < 36) revert Paymaster__InvalidData();
         bytes4 selector = bytes4(userOp.callData[:4]);
@@ -122,22 +153,39 @@ contract Paymaster is BasePaymaster {
         address target = address(uint160(uint256(bytes32(userOp.callData[4:36]))));
         if (!allowedTargets[target]) revert Paymaster__TargetNotAllowed(target);
 
-        // 2. Decode our sponsorship fields from paymasterAndData.
-        if (userOp.paymasterAndData.length != UserOperationLib.PAYMASTER_DATA_OFFSET + PAYMASTER_DATA_LENGTH) {
+        // 2. Bind sponsorship to a known sender — either an already-seen clone
+        //    or a fresh clone being deployed via an approved factory.
+        address sender = userOp.sender;
+        if (!allowedSenders[sender]) {
+            if (userOp.initCode.length < 20) revert Paymaster__SenderNotAllowed(sender);
+            address factory = address(bytes20(userOp.initCode[:20]));
+            if (!allowedFactories[factory]) revert Paymaster__SenderNotAllowed(sender);
+            allowedSenders[sender] = true; // cache for subsequent UserOps
+            emit SenderAllowed(sender, true);
+        }
+
+        // 3. Decode sponsorship fields from paymasterAndData.
+        if (userOp.paymasterAndData.length < UserOperationLib.PAYMASTER_DATA_OFFSET + PAYMASTER_DATA_LENGTH) {
             revert Paymaster__InvalidData();
         }
         uint48 validUntil = uint48(bytes6(userOp.paymasterAndData[VALID_UNTIL_OFFSET:VALID_AFTER_OFFSET]));
         uint48 validAfter = uint48(bytes6(userOp.paymasterAndData[VALID_AFTER_OFFSET:SIG_OFFSET]));
-        bytes calldata signature = userOp.paymasterAndData[SIG_OFFSET:];
+        bytes calldata signature = userOp.paymasterAndData[SIG_OFFSET:SIG_OFFSET + 65];
 
-        // 3. Recover signer over EIP-191 hash.
+        // 4. Enforce the per-sender lifetime budget PRE-execution.
+        uint256 cap = gasBudget[sender];
+        if (cap != 0) {
+            uint256 used = gasUsed[sender];
+            if (used + maxCost > cap) revert Paymaster__BudgetExceeded(sender, used, cap, maxCost);
+        }
+
+        // 5. Recover signer over EIP-191 hash.
         bytes32 digest = getHash(userOp, validUntil, validAfter).toEthSignedMessageHash();
         (address recovered, ECDSA.RecoverError err, ) = ECDSA.tryRecover(digest, signature);
         bool sigFailed = err != ECDSA.RecoverError.NoError || recovered != verifier;
 
-        // 4. Return packed validationData with time range.
         validationData = _packValidationData(sigFailed, validUntil, validAfter);
-        context = abi.encode(userOp.sender, target, maxCost);
+        context = abi.encode(sender, target, maxCost);
     }
 
     function _postOp(
@@ -146,19 +194,20 @@ contract Paymaster is BasePaymaster {
         uint256 actualGasCost,
         uint256 /* actualUserOpFeePerGas */
     ) internal override {
-        if (mode == PostOpMode.postOpReverted) return; // never emitted by EntryPoint; defensive.
+        if (mode == PostOpMode.postOpReverted) return; // defensive — never emitted by EntryPoint.
 
         (address sender, address target, ) = abi.decode(context, (address, address, uint256));
 
-        // Budget tracking is best-effort: we never revert here (slashing risk).
-        unchecked {
-            uint256 newUsed = gasUsed[target] + actualGasCost;
-            gasUsed[target] = newUsed;
-            if (gasBudget[target] != 0 && newUsed > gasBudget[target]) {
-                emit BudgetOverflow(target, newUsed, gasBudget[target]);
-            } else {
-                emit GasSponsored(target, sender, actualGasCost);
-            }
+        // Budget accounting is checked (not unchecked) so silent overflow can't
+        // hide an over-spend. Emits BudgetOverflow if the cap is breached but
+        // never reverts (reverting would slash the paymaster's deposit).
+        uint256 newUsed = gasUsed[sender] + actualGasCost;
+        gasUsed[sender] = newUsed;
+        uint256 cap = gasBudget[sender];
+        if (cap != 0 && newUsed > cap) {
+            emit BudgetOverflow(sender, newUsed, cap);
+        } else {
+            emit GasSponsored(sender, target, actualGasCost);
         }
     }
 }
