@@ -1,17 +1,64 @@
 "use client";
 
+import { Card, CardContent } from "../ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { VaultStatsBar } from "./VaultStatsBar";
+import { DepositForm } from "./DepositForm";
+import { WithdrawForm } from "./WithdrawForm";
+import { FaucetButton } from "./FaucetButton";
+import { ClientOnly } from "../shared/ClientOnly";
+import { useWallet } from "../../hooks/useWallet";
+
+function VaultPanelBody() {
+  const wallet = useWallet();
+  return (
+    <section className="space-y-6">
+      <header>
+        <h1 className="text-3xl font-semibold">Vault</h1>
+        <p className="text-muted-foreground">Deposit mUSDC to earn simulated yield.</p>
+      </header>
+
+      <VaultStatsBar />
+
+      {wallet.isConnected && wallet.walletType === "eoa" ? <FaucetButton /> : null}
+
+      <Card>
+        <CardContent className="pt-6">
+          <Tabs defaultValue="deposit">
+            <TabsList className="w-full">
+              <TabsTrigger value="deposit" className="flex-1">Deposit</TabsTrigger>
+              <TabsTrigger value="withdraw" className="flex-1">Withdraw</TabsTrigger>
+            </TabsList>
+            <TabsContent value="deposit"><DepositForm /></TabsContent>
+            <TabsContent value="withdraw"><WithdrawForm /></TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+
+      {wallet.walletType === "passkey" ? (
+        <p className="text-xs text-muted-foreground text-center">
+          Gasless deposits via the passkey smart account are unsupported on localhost
+          (Pimlico doesn't serve chainId 31337). Switch to an EOA wallet to test writes,
+          or redeploy to Sepolia.
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
 export function VaultPanel() {
   return (
-    <section className="space-y-4">
-      <h1 className="text-2xl font-semibold">Vault</h1>
-      <p className="text-muted-foreground">
-        Deposit and withdraw forms land here in Phase 3. Includes a &ldquo;gasless deposit&rdquo;
-        toggle (ERC-4337 paymaster) wired up in Phase 5.
-      </p>
-      <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
-        Scaffold placeholder — integration-planner output in docs/INTEGRATIONS.md describes the
-        exact wagmi `useWriteContract` calls.
-      </div>
-    </section>
+    <ClientOnly
+      fallback={
+        <section className="space-y-6">
+          <header>
+            <h1 className="text-3xl font-semibold">Vault</h1>
+            <p className="text-muted-foreground">Loading…</p>
+          </header>
+        </section>
+      }
+    >
+      <VaultPanelBody />
+    </ClientOnly>
   );
 }
