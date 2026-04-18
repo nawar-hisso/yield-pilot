@@ -3,7 +3,7 @@ import { Inter, Syne, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "../src/providers/Providers";
 import { AppLayout } from "../components/layout/AppLayout";
-import { ParticleField } from "../components/shared/ParticleField";
+import { ParticleFieldLoader } from "../components/shared/ParticleFieldLoader";
 
 const ui = Inter({
   subsets: ["latin"],
@@ -37,7 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`dark ${ui.variable} ${display.variable} ${mono.variable}`}
     >
       <body>
-        <ParticleField />
+        <ParticleFieldLoader />
         <Providers>
           <AppLayout>{children}</AppLayout>
         </Providers>
