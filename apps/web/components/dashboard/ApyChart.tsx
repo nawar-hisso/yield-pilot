@@ -6,15 +6,30 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui
 
 type Point = { day: string; apy: number };
 
+/** mulberry32 — tiny seeded PRNG. Deterministic on SSR + CSR, avoids hydration mismatches. */
+function mulberry32(seed: number): () => number {
+  let a = seed;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const DEMO_EPOCH_MS = Date.UTC(2026, 3, 1); // 2026-04-01 UTC
+
 function mockApy(days = 30): Point[] {
+  const rand = mulberry32(0x5e4d1 + days);
   const out: Point[] = [];
   let v = 4.6;
   for (let i = days; i >= 0; i--) {
-    v += (Math.sin(i / 5) * 0.1 + (Math.random() - 0.4) * 0.08);
+    v += (Math.sin(i / 5) * 0.1 + (rand() - 0.4) * 0.08);
     v = Math.max(1.5, Math.min(7, v));
-    const d = new Date(Date.now() - i * 86_400_000);
+    const d = new Date(DEMO_EPOCH_MS - i * 86_400_000);
     out.push({
-      day: d.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+      day: d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }),
       apy: Number(v.toFixed(2)),
     });
   }
