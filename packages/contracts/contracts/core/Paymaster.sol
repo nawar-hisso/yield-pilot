@@ -7,7 +7,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 /// @title Paymaster
 /// @notice ERC-4337 paymaster skeleton that sponsors gas for deposits into a
 ///         whitelisted YieldVault. Phase 5 replaces the minimal logic here
-///         with an import from `@account-abstraction/contracts`.
+///         with an import from the account-abstraction contracts package.
 /// @dev Maintains a per-vault spending cap plus an optional global daily cap.
 contract Paymaster is Ownable, ReentrancyGuard {
     /// @notice Whitelisted vault addresses that may have their deposits sponsored.
