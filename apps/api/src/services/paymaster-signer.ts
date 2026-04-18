@@ -15,6 +15,10 @@ import { logger } from "../logger.js";
  *
  * On-chain contract layout (see packages/contracts/contracts/core/Paymaster.sol):
  *   paymasterAndData = [paymaster(20) | validationGas(16) | postOpGas(16) | validUntil(6) | validAfter(6) | signature(65)]
+ *
+ * The on-chain `getHash(...)` commits to `keccak256(paymasterAndData[:52])`,
+ * binding the signature to the paymaster's OWN gas limits so a bundler cannot
+ * silently rewrite them after the signer signs.
  */
 
 export interface SponsorshipInput {
@@ -29,6 +33,10 @@ export interface SponsorshipInput {
   };
   chainId: number;
   paymasterAddress: Address;
+  /** Paymaster's own validation-gas budget (16-byte uint). */
+  paymasterValidationGasLimit: bigint;
+  /** Paymaster's own postOp-gas budget (16-byte uint). */
+  paymasterPostOpGasLimit: bigint;
   validUntil: number; // unix seconds (uint48)
   validAfter: number; // unix seconds (uint48)
 }
@@ -58,16 +66,37 @@ export function getPaymasterSignerAddress(): Address {
   return signerAccount().address;
 }
 
-/**
- * Build the sponsorship approval. Matches Paymaster.getHash() semantics on-chain.
- * The on-chain ECDSA.tryRecover expects the EIP-191 wrapper
- * (hashMessage/toEthSignedMessageHash) around the encoded hash.
- */
-export async function buildSponsorship(input: SponsorshipInput): Promise<SponsorshipOutput> {
-  const { userOp, chainId, paymasterAddress, validUntil, validAfter } = input;
+// Maximum reasonable gas-limit bound on each paymaster callback. Any submitter
+// passing values above this is rejected outright — they would hand the
+// paymaster an unbounded sponsorship cost.
+const MAX_GAS_LIMIT = 2_000_000n;
 
-  // keccak256( abi.encode( sender, nonce, keccak256(initCode), keccak256(callData),
-  //   accountGasLimits, preVerificationGas, gasFees, chainid, paymaster, validUntil, validAfter ) )
+export async function buildSponsorship(input: SponsorshipInput): Promise<SponsorshipOutput> {
+  const {
+    userOp,
+    chainId,
+    paymasterAddress,
+    paymasterValidationGasLimit,
+    paymasterPostOpGasLimit,
+    validUntil,
+    validAfter,
+  } = input;
+
+  if (paymasterValidationGasLimit <= 0n || paymasterValidationGasLimit > MAX_GAS_LIMIT) {
+    throw new Error(`paymasterValidationGasLimit out of range (0, ${MAX_GAS_LIMIT}]`);
+  }
+  if (paymasterPostOpGasLimit <= 0n || paymasterPostOpGasLimit > MAX_GAS_LIMIT) {
+    throw new Error(`paymasterPostOpGasLimit out of range (0, ${MAX_GAS_LIMIT}]`);
+  }
+
+  const paymasterDataHeader = concatHex([
+    paymasterAddress,
+    toHexPadded(paymasterValidationGasLimit, 16),
+    toHexPadded(paymasterPostOpGasLimit, 16),
+  ]);
+  const paymasterDataHeaderHash = keccak256(paymasterDataHeader);
+
+  // Matches on-chain Paymaster.getHash(...) — must stay in sync with Solidity.
   const encoded = encodePackedHash(
     userOp.sender,
     userOp.nonce,
@@ -76,6 +105,7 @@ export async function buildSponsorship(input: SponsorshipInput): Promise<Sponsor
     userOp.accountGasLimits,
     userOp.preVerificationGas,
     userOp.gasFees,
+    paymasterDataHeaderHash,
     BigInt(chainId),
     paymasterAddress,
     validUntil,
@@ -86,9 +116,7 @@ export async function buildSponsorship(input: SponsorshipInput): Promise<Sponsor
   const signature = await signerAccount().signMessage({ message: { raw: encoded } });
 
   const paymasterAndData = concatHex([
-    paymasterAddress, // 20
-    toHexPadded(0n, 16), // paymasterValidationGasLimit (placeholder — frontend sets real limit)
-    toHexPadded(0n, 16), // paymasterPostOpGasLimit (placeholder)
+    paymasterDataHeader, // [paymaster(20) | validationGas(16) | postOpGas(16)]
     toHexPadded(BigInt(validUntil), 6),
     toHexPadded(BigInt(validAfter), 6),
     signature,
@@ -97,10 +125,6 @@ export async function buildSponsorship(input: SponsorshipInput): Promise<Sponsor
   return { paymasterAndData, validUntil, validAfter, hash: digest, signature };
 }
 
-/**
- * Re-create the on-chain abi.encode(...) hash. `hashMessage({ raw })` re-wraps
- * with the EIP-191 prefix to match `ECDSA.tryRecover(toEthSignedMessageHash(...))`.
- */
 function encodePackedHash(
   sender: Address,
   nonce: bigint,
@@ -109,6 +133,7 @@ function encodePackedHash(
   accountGasLimits: Hex,
   preVerificationGas: bigint,
   gasFees: Hex,
+  paymasterDataHeaderHash: Hex,
   chainId: bigint,
   paymaster: Address,
   validUntil: number,
@@ -123,6 +148,7 @@ function encodePackedHash(
     accountGasLimits,
     toHexPadded(preVerificationGas, 32),
     gasFees,
+    paymasterDataHeaderHash,
     toHexPadded(chainId, 32),
     padAddress(paymaster),
     toHexPadded(BigInt(validUntil), 32), // uint48 encoded as 32-byte slot per abi.encode
@@ -141,4 +167,3 @@ function toHexPadded(value: bigint, byteLen: number): Hex {
   if (hex.length > needed) throw new Error(`value exceeds ${byteLen} bytes`);
   return ("0x" + hex.padStart(needed, "0")) as Hex;
 }
-

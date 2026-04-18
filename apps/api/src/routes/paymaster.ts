@@ -1,8 +1,8 @@
 import { Router, type Router as ExpressRouter } from "express";
 import { z } from "zod";
-import { slice, type Hex, type Address } from "viem";
+import { getAddress, slice, type Hex, type Address } from "viem";
 import { buildSponsorship, getPaymasterSignerAddress } from "../services/paymaster-signer.js";
-import { evaluatePolicy } from "../services/paymaster-policy.js";
+import { evaluatePolicy, recordCharge } from "../services/paymaster-policy.js";
 import { logger } from "../logger.js";
 
 export const paymasterRouter: ExpressRouter = Router();
@@ -38,10 +38,19 @@ const sponsorBody = z.object({
   paymasterAddress: addressSchema,
   userOp: userOpSchema,
   maxCost: bigintString,
+  /** Paymaster's own validation-gas budget (16-byte uint, wei). Required. */
+  paymasterValidationGasLimit: bigintString,
+  /** Paymaster's own postOp-gas budget (16-byte uint, wei). Required. */
+  paymasterPostOpGasLimit: bigintString,
   /** Validity window (seconds). Defaults to [now, now + 30 min]. */
   validAfter: z.number().int().nonnegative().optional(),
   validUntil: z.number().int().positive().optional(),
 });
+
+// callData layout: selector(4) + target(32, left-padded) + ...
+//   0x | selector(8 hex) | pad(24 hex) | target(40 hex) | ...
+// Minimum: "0x" + 4 + 32 = 72 hex chars.
+const MIN_EXECUTE_CALLDATA_HEX = 2 + 8 + 64;
 
 paymasterRouter.get("/signer", (_req, res) => {
   try {
@@ -62,16 +71,30 @@ paymasterRouter.post("/sponsor", async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: "bad body", details: parsed.error.flatten() });
   }
-  const { chainId, paymasterAddress, userOp, maxCost } = parsed.data;
+  const {
+    chainId,
+    paymasterAddress,
+    userOp,
+    maxCost,
+    paymasterValidationGasLimit,
+    paymasterPostOpGasLimit,
+  } = parsed.data;
 
-  // Extract target + selector from the execute(...) call.
-  if (userOp.callData.length < 2 + 8) {
-    return res.status(400).json({ error: "callData too short" });
+  // Extract target + selector from the execute(address,uint256,bytes) call.
+  if (userOp.callData.length < MIN_EXECUTE_CALLDATA_HEX) {
+    return res.status(400).json({ error: "callData too short for execute(address,...)" });
   }
   const selector = slice(userOp.callData, 0, 4);
-  // callData layout: selector(4) + target(32, left-padded) + ...
-  // slice returns bytes; the target lives in the last 20 bytes of the first arg slot.
-  const target = ("0x" + userOp.callData.slice(2 + 8 + 24, 2 + 8 + 64)) as Address;
+  let target: Address;
+  try {
+    // Use viem.slice to pull the 32-byte arg slot, then narrow to the last 20
+    // bytes and checksum. Rejects dirty top bytes via getAddress parse.
+    const targetSlot = slice(userOp.callData, 4, 36);
+    const targetBytes = ("0x" + targetSlot.slice(2 + 24)) as Address;
+    target = getAddress(targetBytes);
+  } catch (err) {
+    return res.status(400).json({ error: "bad target in callData", reason: (err as Error).message });
+  }
 
   const policy = evaluatePolicy({
     chainId,
@@ -98,9 +121,12 @@ paymasterRouter.post("/sponsor", async (req, res) => {
       userOp,
       chainId,
       paymasterAddress,
+      paymasterValidationGasLimit,
+      paymasterPostOpGasLimit,
       validUntil,
       validAfter,
     });
+    recordCharge(userOp.sender, maxCost);
     return res.json({
       paymasterAndData: out.paymasterAndData,
       validUntil: out.validUntil,
