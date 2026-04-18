@@ -51,5 +51,9 @@ Thumbs.db
 # test output
 *.lcov
 .nyc_output/
+
+# TS incremental build info
+*.tsbuildinfo
+
 # Prisma CLI env — local only
 packages/database/.env
