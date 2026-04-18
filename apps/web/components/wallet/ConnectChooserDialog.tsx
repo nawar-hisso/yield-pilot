@@ -38,8 +38,12 @@ export function ConnectChooserDialog() {
           />
           <ChoiceCard
             icon={<Fingerprint className="h-6 w-6" aria-hidden />}
-            title="Create smart account"
-            subtitle="Use Face ID or Touch ID — no wallet required. Gasless deposits."
+            title={wallet.hasPasskey ? "Continue with passkey" : "Create smart account"}
+            subtitle={
+              wallet.hasPasskey
+                ? "Reuse your existing passkey — same smart-account address."
+                : "Use Face ID or Touch ID — no wallet required. Gasless deposits."
+            }
             onClick={() => void wallet.choosePasskey()}
             accent
           />

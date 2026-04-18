@@ -24,6 +24,13 @@ export interface WalletContextValue {
   chooseEoa: () => void;
   choosePasskey: () => Promise<void>;
   disconnect: () => Promise<void>;
+  /** Whether a passkey smart-account record exists on-device. Used by UI to
+   *  switch the chooser label from "Create" → "Continue with" and to gate the
+   *  Settings "Remove smart account" action. */
+  hasPasskey: boolean;
+  /** Destroy the stored passkey record permanently. Expose via a dedicated
+   *  Settings action — Disconnect does NOT call this. */
+  forgetPasskey: () => Promise<void>;
 }
 
 const Ctx = createContext<WalletContextValue | null>(null);
@@ -77,10 +84,16 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, [passkey]);
 
   const disconnect = useCallback(async () => {
+    // IMPORTANT: Disconnecting ends the SESSION, not the account.
+    //   - EOA: wagmi disconnectAsync() just drops the provider connection.
+    //   - Passkey: we just clear the active path + activePath flag. The
+    //     passkey record in IndexedDB is preserved so the counterfactual
+    //     smart-account address stays stable across reconnects. Use
+    //     passkey.forget() (via a dedicated "Remove smart account" UI) to
+    //     actually destroy the account record.
     if (activePath === "eoa") await disconnectAsync();
-    else if (activePath === "passkey") await passkey.forget();
     setActivePath(null);
-  }, [activePath, disconnectAsync, passkey]);
+  }, [activePath, disconnectAsync]);
 
   const value = useMemo<WalletContextValue>(() => {
     const isPasskey = activePath === "passkey" && !!passkey.passkey;
@@ -99,12 +112,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       chooseEoa,
       choosePasskey,
       disconnect,
+      hasPasskey: !!passkey.passkey,
+      forgetPasskey: passkey.forget,
     };
   }, [
     activePath,
     passkey.passkey,
     passkey.address,
     passkey.isLoading,
+    passkey.forget,
     eoa.isConnected,
     eoa.address,
     eoa.chainId,
