@@ -1,0 +1,74 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* YieldPilot brand — midnight blue primary (#0B1E3B ≈ hsl(218 67% 14%))
+   + cyan accent (#22D3EE ≈ hsl(187 85% 53%)). Dark theme is the default. */
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 218 67% 14%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 218 67% 14%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 218 67% 14%;
+
+    --primary: 218 67% 14%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 20% 96%;
+    --secondary-foreground: 218 67% 14%;
+
+    --muted: 220 14% 93%;
+    --muted-foreground: 220 9% 46%;
+
+    --accent: 187 85% 53%;
+    --accent-foreground: 218 67% 14%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 13% 88%;
+    --input: 220 13% 88%;
+    --ring: 187 85% 53%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 218 67% 9%;
+    --foreground: 0 0% 96%;
+
+    --card: 218 67% 11%;
+    --card-foreground: 0 0% 96%;
+
+    --popover: 218 67% 11%;
+    --popover-foreground: 0 0% 96%;
+
+    --primary: 187 85% 53%;
+    --primary-foreground: 218 67% 14%;
+
+    --secondary: 218 40% 18%;
+    --secondary-foreground: 0 0% 96%;
+
+    --muted: 218 40% 16%;
+    --muted-foreground: 220 9% 66%;
+
+    --accent: 187 85% 53%;
+    --accent-foreground: 218 67% 14%;
+
+    --destructive: 0 63% 42%;
+    --destructive-foreground: 0 0% 96%;
+
+    --border: 218 40% 20%;
+    --input: 218 40% 20%;
+    --ring: 187 85% 53%;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}

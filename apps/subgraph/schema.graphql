@@ -1,0 +1,46 @@
+type VaultDeposit @entity(immutable: true) {
+  id: Bytes!
+  user: Bytes!
+  assets: BigInt!
+  shares: BigInt!
+  timestamp: BigInt!
+  block: BigInt!
+  transactionHash: Bytes!
+}
+
+type VaultWithdrawal @entity(immutable: true) {
+  id: Bytes!
+  user: Bytes!
+  assets: BigInt!
+  shares: BigInt!
+  timestamp: BigInt!
+  block: BigInt!
+  transactionHash: Bytes!
+}
+
+type UserPosition @entity {
+  id: Bytes!
+  totalDeposited: BigInt!
+  totalWithdrawn: BigInt!
+  currentShares: BigInt!
+  depositCount: Int!
+  lastActivity: BigInt!
+}
+
+  id: Bytes!
+  operator: Bytes!
+  safe: Bytes!
+  target: Bytes!
+  action: String!
+  timestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type VaultStats @entity {
+  "singleton id = 0x00"
+  id: Bytes!
+  totalAssets: BigInt!
+  totalShares: BigInt!
+  uniqueDepositors: Int!
+  updatedAt: BigInt!
+}

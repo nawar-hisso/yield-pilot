@@ -1,0 +1,30 @@
+{
+  "name": "@yield-pilot/database",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./client": "./src/client.ts"
+  },
+  "scripts": {
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:studio": "prisma studio",
+    "build": "prisma generate",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo '(database) no lint configured'",
+    "test": "echo '(database) no tests configured'",
+    "clean": "rm -rf dist .turbo node_modules/.prisma"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.18.0"
+  },
+  "devDependencies": {
+    "@yield-pilot/tsconfig": "workspace:*",
+    "prisma": "^5.18.0",
+    "typescript": "^5.5.0"
+  }
+}

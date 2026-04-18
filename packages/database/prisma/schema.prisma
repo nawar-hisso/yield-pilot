@@ -1,0 +1,51 @@
+// YieldPilot Prisma schema — off-chain state only.
+// On-chain data (deposits, withdrawals, positions) lives in the subgraph.
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+/// User preferences keyed by EVM address. Always lowercase the address before writing.
+model User {
+  id              String   @id @default(cuid())
+  address         String   @unique
+  notifyDeposits  Boolean  @default(true)
+  notifyWithdraws Boolean  @default(true)
+  preferredChain  String   @default("sepolia")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  notifications Notification[]
+
+  @@index([address])
+}
+
+/// In-app inbox for deposit/withdraw/delegate events.
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  kind      String // "deposit" | "withdraw" | "operator_action" | "tx_failed"
+  payload   Json
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([createdAt])
+}
+
+model ProcessedEvent {
+  key         String   @id
+  chainId     Int
+  processedAt DateTime @default(now())
+
+  @@index([chainId, processedAt])
+}

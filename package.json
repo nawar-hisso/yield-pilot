@@ -1,0 +1,28 @@
+{
+  "name": "yield-pilot",
+  "version": "0.0.1",
+  "private": true,
+  "packageManager": "pnpm@9.12.0",
+  "engines": {
+    "node": ">=20.10.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "compile": "turbo run compile",
+    "clean": "turbo run clean && rm -rf node_modules .turbo",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,md,json,sol}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,md,json,sol}\""
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "prettier": "^3.3.0",
+    "prettier-plugin-solidity": "^1.4.1",
+    "turbo": "^2.1.0",
+    "typescript": "^5.5.0"
+  }
+}

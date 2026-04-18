@@ -1,0 +1,12 @@
+node_modules/
+.turbo/
+.next/
+dist/
+build/
+artifacts/
+cache/
+typechain-types/
+coverage/
+**/generated/
+**/*.min.*
+pnpm-lock.yaml

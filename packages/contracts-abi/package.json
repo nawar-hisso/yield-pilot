@@ -1,0 +1,24 @@
+{
+  "name": "@yield-pilot/contracts-abi",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "node ./scripts/extract-abis.mjs",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo '(contracts-abi) no lint configured'",
+    "test": "echo '(contracts-abi) no tests configured'",
+    "clean": "rm -rf src/abis .turbo"
+  },
+  "dependencies": {
+    "@yield-pilot/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "@yield-pilot/tsconfig": "workspace:*",
+    "typescript": "^5.5.0"
+  }
+}

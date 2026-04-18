@@ -1,0 +1,20 @@
+{
+  "name": "@yield-pilot/subgraph",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "codegen": "graph codegen",
+    "build": "graph build",
+    "deploy:sepolia": "graph deploy --studio yield-pilot-sepolia",
+    "deploy:base-sepolia": "graph deploy --studio yield-pilot-base-sepolia",
+    "lint": "echo '(subgraph) no lint configured'",
+    "typecheck": "echo '(subgraph) assemblyscript — no tsc'",
+    "test": "graph test",
+    "clean": "rm -rf build generated .turbo"
+  },
+  "devDependencies": {
+    "@graphprotocol/graph-cli": "^0.83.0",
+    "@graphprotocol/graph-ts": "^0.35.0",
+    "matchstick-as": "^0.6.0"
+  }
+}

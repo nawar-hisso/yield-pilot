@@ -1,0 +1,53 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# env
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# builds
+dist/
+build/
+.next/
+out/
+.turbo/
+
+# contracts
+artifacts/
+cache/
+typechain-types/
+coverage/
+coverage.json
+
+# hardhat ignition
+packages/contracts/ignition/deployments/
+
+# subgraph
+apps/subgraph/build/
+apps/subgraph/generated/
+
+# prisma
+packages/database/prisma/*.db
+packages/database/prisma/*.db-journal
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# os
+.DS_Store
+Thumbs.db
+
+# editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# test output
+*.lcov
+.nyc_output/

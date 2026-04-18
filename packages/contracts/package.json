@@ -1,0 +1,36 @@
+{
+  "name": "@yield-pilot/contracts",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./artifacts/index.js",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "coverage": "hardhat coverage",
+    "node": "hardhat node",
+    "deploy:sepolia": "hardhat ignition deploy ignition/modules/YieldPilotModule.ts --network sepolia --verify",
+    "deploy:base-sepolia": "hardhat ignition deploy ignition/modules/YieldPilotModule.ts --network base-sepolia --verify",
+    "build": "hardhat compile",
+    "lint": "echo '(contracts) no lint configured'",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf artifacts cache typechain-types ignition/deployments .turbo"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-ignition": "^0.15.0",
+    "@nomicfoundation/hardhat-ignition-ethers": "^0.15.0",
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@openzeppelin/contracts": "^5.0.2",
+    "@safe-global/safe-contracts": "^1.4.1-2",
+    "@types/chai": "^4.3.16",
+    "@types/mocha": "^10.0.7",
+    "@types/node": "^20.14.0",
+    "@yield-pilot/tsconfig": "workspace:*",
+    "dotenv": "^16.4.5",
+    "ethers": "^6.13.0",
+    "hardhat": "^2.22.0",
+    "hardhat-gas-reporter": "^2.2.0",
+    "solidity-coverage": "^0.8.12",
+    "typechain": "^8.3.2",
+    "typescript": "^5.5.0"
+  }
+}
