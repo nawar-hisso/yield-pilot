@@ -95,8 +95,8 @@ export function Sidebar() {
                 "group relative flex items-center gap-3 rounded-md py-2 text-sm transition-all duration-150 ease-[cubic-bezier(0.25,1,0.5,1)]",
                 collapsed ? "px-3 justify-center" : "px-3",
                 active
-                  ? "bg-[color:var(--color-accent-glow)] text-[color:var(--color-accent)] font-medium"
-                  : "text-muted-foreground hover:bg-[color:var(--color-card-hover)] hover:text-foreground",
+                  ? "bg-[color:var(--color-accent-glow)] text-[color:var(--color-accent)] font-semibold"
+                  : "text-[color:var(--color-text-2)] hover:bg-[color:var(--color-card-hover)] hover:text-[color:var(--color-text-1)]",
               )}
             >
               {active ? (
@@ -110,7 +110,7 @@ export function Sidebar() {
                   "h-4 w-4 shrink-0",
                   active
                     ? "text-[color:var(--color-accent)]"
-                    : "text-muted-foreground group-hover:text-foreground",
+                    : "text-[color:var(--color-text-2)] group-hover:text-[color:var(--color-text-1)]",
                 )}
                 strokeWidth={active ? 2 : 1.75}
               />

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Syne, JetBrains_Mono } from "next/font/google";
+import { Inter, Manrope, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "../src/providers/Providers";
 import { AppLayout } from "../components/layout/AppLayout";
@@ -10,7 +10,7 @@ const ui = Inter({
   variable: "--font-ui",
   display: "swap",
 });
-const display = Syne({
+const display = Manrope({
   subsets: ["latin"],
   variable: "--font-display",
   weight: ["500", "600", "700", "800"],
