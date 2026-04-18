@@ -3,12 +3,12 @@
 @tailwind utilities;
 
 /*
- * YieldPilot — crypto-native bold, mandate-compliant.
+ * YieldPilot — Rose Protocol palette (mandate-compliant).
  * ───────────────────────────────────────────────────
- * Primary accent:  cyan      #22D3EE  (rgb 34 211 238)
- * Secondary:       violet    #7C3AED
+ * Primary accent:  rose      #F43F5E  (rgb 244 63 94)
+ * Secondary:       purple    #A855F7  (rgb 168 85 247)
  * Extended:        fuchsia   #D946EF · lime #A3E635 · gold #F59E0B
- * Gradient:        cyan → violet → fuchsia (hero + CTA + border)
+ * Gradient:        rose → purple → fuchsia (hero + CTA + border)
  */
 
 @layer base {
@@ -16,14 +16,14 @@
     /* ── mandate tokens (load-bearing) ─────────────────────── */
 
     /* Accent triplet — change only this line to re-brand */
-    --accent-rgb:         34 211 238;                       /* cyan #22D3EE */
-    --accent-2-rgb:       124 58 237;                       /* violet #7C3AED */
+    --accent-rgb:         244 63 94;                        /* rose #F43F5E */
+    --accent-2-rgb:       168 85 247;                       /* purple #A855F7 */
 
-    /* Base surfaces (dark-first) */
-    --color-base:         hsl(220 45% 3%);
-    --color-surface:      hsl(220 40% 6%);
-    --color-card:         hsl(220 40% 9%);
-    --color-card-hover:   hsl(220 40% 12%);
+    /* Base surfaces (dark-first) — Rose Protocol */
+    --color-base:         hsl(310 50% 5%);                  /* #120611 */
+    --color-surface:      hsl(310 46% 7%);                  /* #1A0A17 */
+    --color-card:         hsl(313 38% 10%);                 /* #23101E */
+    --color-card-hover:   hsl(315 38% 14%);                 /* #301628 */
 
     /* Borders */
     --color-border:       rgb(255 255 255 / 0.06);
@@ -59,43 +59,43 @@
     --duration-base:      220ms;
     --duration-slow:      400ms;
 
-    /* ── shadcn tokens (downstream components depend on these) ─ */
-    --background: 220 40% 6%;
+    /* ── shadcn tokens — shifted to rose palette hues ─ */
+    --background: 310 46% 7%;
     --foreground: 0 0% 98%;
 
-    --card: 220 40% 9%;
+    --card: 313 38% 10%;
     --card-foreground: 0 0% 98%;
-    --card-muted: 220 40% 12%;
+    --card-muted: 315 38% 14%;
 
-    --popover: 220 40% 7%;
+    --popover: 312 45% 8%;
     --popover-foreground: 0 0% 98%;
 
-    --primary: 187 85% 53%;
-    --primary-foreground: 220 40% 6%;
+    --primary: 350 89% 60%;
+    --primary-foreground: 310 46% 7%;
 
-    --secondary: 218 40% 16%;
+    --secondary: 315 40% 16%;
     --secondary-foreground: 0 0% 98%;
 
-    --muted: 218 30% 14%;
-    --muted-foreground: 220 14% 65%;
+    --muted: 315 30% 14%;
+    --muted-foreground: 315 14% 65%;
 
-    --accent: 187 85% 53%;
-    --accent-foreground: 220 40% 6%;
+    --accent: 350 89% 60%;
+    --accent-foreground: 310 46% 7%;
 
     --destructive: 0 70% 55%;
     --destructive-foreground: 0 0% 98%;
     --success: 142 64% 48%;
     --warning: 38 88% 58%;
 
-    --border: 218 40% 18%;
-    --input: 218 40% 16%;
-    --ring: 187 85% 53%;
+    --border: 315 40% 18%;
+    --input: 315 40% 16%;
+    --ring: 350 89% 60%;
 
     --radius: 0.75rem;
 
-    --violet: 263 85% 58%;
-    --fuchsia: 291 84% 61%;
-    --lime: 82 78% 56%;
+    --violet: 271 91% 65%;       /* purple-500 — accent-2 */
+    --fuchsia: 291 84% 61%;      /* kept for gradient variety */
+    --lime: 82 78% 56%;          /* kept for gradient variety */
 
     --grad-hero: linear-gradient(
       135deg,
