@@ -24,7 +24,7 @@ export function TopBar() {
   const meta = TITLES[pathname] ?? { title: "YieldPilot", sub: "" };
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-border bg-background/75 px-4 lg:px-8 backdrop-blur">
+    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-[color:var(--color-border)] bg-[color:var(--color-surface)]/75 px-4 lg:px-8 backdrop-blur-xl">
       <div className="min-w-0 flex-1">
         <div className="font-display text-base font-semibold leading-tight truncate">{meta.title}</div>
         <div className="hidden sm:block text-xs text-muted-foreground truncate">{meta.sub}</div>

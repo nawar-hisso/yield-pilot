@@ -1,13 +1,17 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard,
   Vault,
   Users,
   ShieldCheck,
   Settings,
+  PanelLeftClose,
+  PanelLeft,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 
@@ -19,52 +23,141 @@ const NAV = [
   { href: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
+const STORAGE_KEY = "yp:sidebar-collapsed";
+
 export function Sidebar() {
   const pathname = usePathname();
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if (raw === "1") setCollapsed(true);
+    } catch {
+      // storage disabled — default to expanded
+    }
+  }, []);
+
+  function toggle() {
+    setCollapsed((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem(STORAGE_KEY, next ? "1" : "0");
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  }
 
   return (
-    <aside className="hidden lg:flex sticky top-0 h-screen w-64 shrink-0 flex-col border-r border-border bg-card/40 backdrop-blur">
+    <motion.aside
+      animate={{ width: collapsed ? 64 : 240 }}
+      transition={{ duration: 0.22, ease: [0.25, 1, 0.5, 1] }}
+      className="hidden lg:flex sticky top-0 h-screen shrink-0 flex-col border-r border-[color:var(--color-border)] bg-[color:var(--color-surface)]/80 backdrop-blur-xl overflow-hidden"
+    >
       <Link
         href="/"
+        aria-label="YieldPilot home"
         className="flex items-center gap-2.5 px-5 py-5 font-display text-lg font-semibold"
       >
         <span
           aria-hidden
-          className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-grad-hero shadow-glow text-primary-foreground text-sm font-bold"
+          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-grad-hero shadow-glow text-primary-foreground text-sm font-bold"
         >
           Y
         </span>
-        <span className="text-grad">YieldPilot</span>
+        <AnimatePresence initial={false}>
+          {!collapsed ? (
+            <motion.span
+              key="brand"
+              initial={{ opacity: 0, x: -6 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -6 }}
+              transition={{ duration: 0.15 }}
+              className="text-grad whitespace-nowrap"
+            >
+              YieldPilot
+            </motion.span>
+          ) : null}
+        </AnimatePresence>
       </Link>
 
-      <nav className="flex-1 px-3 space-y-1">
+      <nav className="flex-1 px-2 space-y-1">
         {NAV.map(({ href, label, icon: Icon }) => {
           const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
           return (
             <Link
               key={href}
               href={href}
+              title={collapsed ? label : undefined}
               className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                "group relative flex items-center gap-3 rounded-md py-2 text-sm transition-all duration-150 ease-[cubic-bezier(0.25,1,0.5,1)]",
+                collapsed ? "px-3 justify-center" : "px-3",
                 active
-                  ? "bg-accent/15 text-accent font-medium"
-                  : "text-muted-foreground hover:bg-card-muted hover:text-foreground",
+                  ? "bg-[color:var(--color-accent-glow)] text-[color:var(--color-accent)] font-medium"
+                  : "text-muted-foreground hover:bg-[color:var(--color-card-hover)] hover:text-foreground",
               )}
             >
+              {active ? (
+                <span
+                  aria-hidden
+                  className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-[3px] rounded-r bg-[color:var(--color-accent)] shadow-[0_0_8px_rgb(var(--accent-rgb)/0.6)]"
+                />
+              ) : null}
               <Icon
-                className={cn("h-4 w-4", active ? "text-accent" : "text-muted-foreground")}
+                className={cn(
+                  "h-4 w-4 shrink-0",
+                  active
+                    ? "text-[color:var(--color-accent)]"
+                    : "text-muted-foreground group-hover:text-foreground",
+                )}
                 strokeWidth={active ? 2 : 1.75}
               />
-              {label}
+              <AnimatePresence initial={false}>
+                {!collapsed ? (
+                  <motion.span
+                    key={`${href}-label`}
+                    initial={{ opacity: 0, x: -4 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -4 }}
+                    transition={{ duration: 0.12 }}
+                    className="whitespace-nowrap"
+                  >
+                    {label}
+                  </motion.span>
+                ) : null}
+              </AnimatePresence>
             </Link>
           );
         })}
       </nav>
 
-      <div className="px-5 py-4 text-[11px] text-muted-foreground border-t border-border">
-        <div>v0.0.1 · dev preview</div>
-        <div className="mt-0.5">YieldPilot · YieldPilot</div>
+      <div
+        className={cn(
+          "border-t border-[color:var(--color-border)] px-2 py-3",
+          collapsed ? "flex justify-center" : "flex items-center justify-between gap-2 px-4",
+        )}
+      >
+        {!collapsed ? (
+          <div className="min-w-0 text-[11px] text-muted-foreground">
+            <div>v0.0.1 · dev</div>
+            <div className="mt-0.5 truncate">YieldPilot</div>
+          </div>
+        ) : null}
+        <button
+          type="button"
+          onClick={toggle}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors duration-fast ease-out-quart hover:bg-[color:var(--color-card-hover)] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {collapsed ? (
+            <PanelLeft className="h-4 w-4" strokeWidth={1.75} />
+          ) : (
+            <PanelLeftClose className="h-4 w-4" strokeWidth={1.75} />
+          )}
+        </button>
       </div>
-    </aside>
+    </motion.aside>
   );
 }
