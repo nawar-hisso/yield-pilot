@@ -12,29 +12,53 @@ import {IERC1155Receiver} from "@openzeppelin/contracts/token/ERC1155/IERC1155Re
 import {WebAuthn} from "../libraries/WebAuthn.sol";
 
 /// @title YieldPilotAccount
-/// @notice ERC-4337 smart account whose signer is a WebAuthn (P-256) passkey.
-///         The passkey public-key (X, Y) is stored once at initialization;
-///         every UserOperation must be signed by that passkey via the browser
-///         WebAuthn API. Deployed via CREATE2 by YieldPilotAccountFactory.
-/// @dev Signature encoding: `abi.encode(bytes authenticatorData, bytes clientDataJSON, bytes32 r, bytes32 s)`.
+/// @notice Multi-passkey ERC-4337 smart account. Signed by one-or-more P-256
+///         WebAuthn passkeys; new keys are added by signing with an already-
+///         authorized key. The CREATE2 address is keyed on the *first* passkey
+///         only (via the factory), so adding / revoking keys never moves the
+///         account address.
+/// @dev Signature envelope:
+///        `abi.encode(bytes32 credId, bytes authenticatorData, bytes clientDataJSON, bytes32 r, bytes32 s)`
+///      `credId` routes to a stored key; `(authenticatorData, clientDataJSON, r, s)` are verified against that key's P-256 pubkey via the RIP-7212 precompile.
 contract YieldPilotAccount is BaseAccount, Initializable, IERC165, IERC721Receiver, IERC1155Receiver {
     /// @notice Soft upper bound on batch size — keeps `executeBatch` from
     uint256 public constant MAX_BATCH = 32;
 
     IEntryPoint private immutable _entryPoint;
 
-    /// @notice Passkey public-key X coordinate (secp256r1 / P-256).
-    bytes32 public pubKeyX;
-    /// @notice Passkey public-key Y coordinate.
-    bytes32 public pubKeyY;
+    struct PasskeyKey {
+        bytes32 x;
+        bytes32 y;
+        uint48 addedAt;      // 0 = slot empty
+        bool active;
+        bytes32 nickname;    // optional human-readable label (client-side)
+    }
 
-    event YieldPilotAccountInitialized(bytes32 pubKeyX, bytes32 pubKeyY);
+    /// @notice credId (keccak256 of WebAuthn credential-id bytes) → key record.
+    mapping(bytes32 credId => PasskeyKey key) public keys;
+
+    /// @notice Enumerable list of every credId ever registered (including revoked).
+    bytes32[] public credIds;
+
+    event YieldPilotAccountInitialized(bytes32 indexed credId, bytes32 pubKeyX, bytes32 pubKeyY);
+    event KeyAdded(bytes32 indexed credId, bytes32 pubKeyX, bytes32 pubKeyY, bytes32 nickname);
+    event KeyRevoked(bytes32 indexed credId);
     event Executed(address indexed target, uint256 value, bytes data);
 
     error YieldPilotAccount__ExecuteFailed(address target, bytes data);
     error YieldPilotAccount__InvalidArrayLength();
     error YieldPilotAccount__InvalidPubKey();
+    error YieldPilotAccount__InvalidCredId();
+    error YieldPilotAccount__CredIdAlreadyRegistered(bytes32 credId);
+    error YieldPilotAccount__UnknownCredId(bytes32 credId);
+    error YieldPilotAccount__CannotRevokeLastActiveKey();
+    error YieldPilotAccount__NotSelf();
     error YieldPilotAccount__BatchTooLarge(uint256 length, uint256 max);
+
+    modifier onlySelf() {
+        if (msg.sender != address(this)) revert YieldPilotAccount__NotSelf();
+        _;
+    }
 
     constructor(IEntryPoint anEntryPoint) {
         _entryPoint = anEntryPoint;
@@ -42,19 +66,24 @@ contract YieldPilotAccount is BaseAccount, Initializable, IERC165, IERC721Receiv
     }
 
     /// @notice Called once by the factory on the freshly-deployed clone.
-    /// @param x Passkey public-key X coordinate.
-    /// @param y Passkey public-key Y coordinate.
-    function initialize(bytes32 x, bytes32 y) external initializer {
+    /// @param credId    Routing id — typically keccak256(webauthn credentialId bytes).
+    /// @param x         Passkey public-key X coordinate (secp256r1 / P-256).
+    /// @param y         Passkey public-key Y coordinate.
+    /// @param nickname  Optional client-side label (e.g. "MacBook Pro · Safari"). `bytes32(0)` is fine.
+    function initialize(bytes32 credId, bytes32 x, bytes32 y, bytes32 nickname) external initializer {
         if (x == bytes32(0) || y == bytes32(0)) revert YieldPilotAccount__InvalidPubKey();
-        pubKeyX = x;
-        pubKeyY = y;
-        emit YieldPilotAccountInitialized(x, y);
+        if (credId == bytes32(0)) revert YieldPilotAccount__InvalidCredId();
+        keys[credId] = PasskeyKey({x: x, y: y, addedAt: uint48(block.timestamp), active: true, nickname: nickname});
+        credIds.push(credId);
+        emit YieldPilotAccountInitialized(credId, x, y);
     }
 
     /// @inheritdoc BaseAccount
     function entryPoint() public view override returns (IEntryPoint) {
         return _entryPoint;
     }
+
+    // ─── Execution ──────────────────────────────────────────────────────────
 
     /// @notice Execute a single call from this account. EntryPoint only.
     function execute(address target, uint256 value, bytes calldata data) external {
@@ -78,6 +107,74 @@ contract YieldPilotAccount is BaseAccount, Initializable, IERC165, IERC721Receiv
 
     /// @notice Receive ETH (used for paying prefund when no paymaster is set).
     receive() external payable {}
+
+    // ─── Key management (call only via `execute(address(this), 0, ...)`) ────
+
+    /// @notice Authorize an additional passkey. Callable only via a UserOp
+    ///         routed through `execute(address(this), ...)`, which means an
+    ///         already-authorized key signed for this change.
+    function addAuthorizedKey(bytes32 credId, bytes32 x, bytes32 y, bytes32 nickname) external onlySelf {
+        if (x == bytes32(0) || y == bytes32(0)) revert YieldPilotAccount__InvalidPubKey();
+        if (credId == bytes32(0)) revert YieldPilotAccount__InvalidCredId();
+        if (keys[credId].addedAt != 0) revert YieldPilotAccount__CredIdAlreadyRegistered(credId);
+        keys[credId] = PasskeyKey({x: x, y: y, addedAt: uint48(block.timestamp), active: true, nickname: nickname});
+        credIds.push(credId);
+        emit KeyAdded(credId, x, y, nickname);
+    }
+
+    /// @notice Deactivate an authorized passkey. Revoked keys can't sign
+    ///         future UserOps. Cannot revoke the last active key.
+    function revokeKey(bytes32 credId) external onlySelf {
+        PasskeyKey storage k = keys[credId];
+        if (k.addedAt == 0) revert YieldPilotAccount__UnknownCredId(credId);
+        if (!k.active) return; // already revoked — idempotent
+
+        uint256 activeCount;
+        uint256 total = credIds.length;
+        for (uint256 i = 0; i < total; ) {
+            if (keys[credIds[i]].active) ++activeCount;
+            unchecked { ++i; }
+        }
+        if (activeCount <= 1) revert YieldPilotAccount__CannotRevokeLastActiveKey();
+
+        k.active = false;
+        emit KeyRevoked(credId);
+    }
+
+    // ─── Views ──────────────────────────────────────────────────────────────
+
+    /// @notice Every credId ever registered (includes revoked).
+    function authorizedKeys() external view returns (bytes32[] memory) {
+        return credIds;
+    }
+
+    /// @notice Count of currently-active keys.
+    function activeKeyCount() external view returns (uint256 count) {
+        uint256 total = credIds.length;
+        for (uint256 i = 0; i < total; ) {
+            if (keys[credIds[i]].active) ++count;
+            unchecked { ++i; }
+        }
+    }
+
+    /// @notice First registered credId — the passkey that determined the
+    ///         CREATE2 address of this account. Present for clients that want
+    ///         to know which key is "primary" without scanning the list.
+    function primaryCredId() external view returns (bytes32) {
+        return credIds.length == 0 ? bytes32(0) : credIds[0];
+    }
+
+    /// @notice Legacy accessor: X coordinate of the primary (first) passkey.
+    function pubKeyX() external view returns (bytes32) {
+        if (credIds.length == 0) return bytes32(0);
+        return keys[credIds[0]].x;
+    }
+
+    /// @notice Legacy accessor: Y coordinate of the primary (first) passkey.
+    function pubKeyY() external view returns (bytes32) {
+        if (credIds.length == 0) return bytes32(0);
+        return keys[credIds[0]].y;
+    }
 
     // ─── Token callbacks ────────────────────────────────────────────────────
 
@@ -115,17 +212,21 @@ contract YieldPilotAccount is BaseAccount, Initializable, IERC165, IERC721Receiv
 
     // ─── Validation ─────────────────────────────────────────────────────────
 
-    /// @dev Verify the passkey signature over `userOpHash`.
+    /// @dev Verify the passkey signature over `userOpHash`. Decodes the credId
+    ///      prefix to pick which stored key to verify against.
     function _validateSignature(PackedUserOperation calldata userOp, bytes32 userOpHash)
         internal
         view
         override
         returns (uint256 validationData)
     {
-        (bytes memory authData, bytes memory clientDataJSON, bytes32 r, bytes32 s) =
-            abi.decode(userOp.signature, (bytes, bytes, bytes32, bytes32));
+        (bytes32 credId, bytes memory authData, bytes memory clientDataJSON, bytes32 r, bytes32 s) =
+            abi.decode(userOp.signature, (bytes32, bytes, bytes, bytes32, bytes32));
 
-        bool ok = WebAuthn.verify(authData, clientDataJSON, r, s, pubKeyX, pubKeyY, userOpHash);
+        PasskeyKey memory k = keys[credId];
+        if (!k.active) return SIG_VALIDATION_FAILED;
+
+        bool ok = WebAuthn.verify(authData, clientDataJSON, r, s, k.x, k.y, userOpHash);
         return ok ? SIG_VALIDATION_SUCCESS : SIG_VALIDATION_FAILED;
     }
 
