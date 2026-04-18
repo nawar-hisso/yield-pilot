@@ -13,7 +13,7 @@ export interface StatCardProps {
   icon?: LucideIcon;
   change?: { value: string; direction: "up" | "down" | "flat" };
   loading?: boolean;
-  accent?: "cyan" | "violet" | "fuchsia" | "lime";
+  accent?: "cyan" | "violet" | "fuchsia" | "lime" | "gold";
   className?: string;
 }
 
@@ -34,6 +34,11 @@ const accentMap = {
     icon: "text-brand-lime",
     border: "border-brand-lime/30",
   },
+  gold: {
+    bg: "from-[color:var(--color-gold)]/25 via-[color:var(--color-gold)]/5",
+    icon: "text-[color:var(--color-gold)]",
+    border: "border-[color:var(--color-gold)]/30",
+  },
 } as const;
 
 export function StatCard({
@@ -49,11 +54,14 @@ export function StatCard({
   const a = accentMap[accent];
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8 }}
+      initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+      whileHover={{ scale: 1.015 }}
+      transition={{ duration: 0.22, ease: [0.25, 1, 0.5, 1] }}
       className={cn(
-        "relative overflow-hidden rounded-lg border bg-card p-5 transition-colors hover:bg-card-muted",
+        "relative overflow-hidden rounded-lg border bg-card p-5",
+        "transition-[border-color,background] duration-fast ease-out-quart",
+        "hover:bg-card-muted hover:border-[color:var(--color-border-glow)]",
         a.border,
         className,
       )}

@@ -6,6 +6,7 @@ import { YieldVaultAbi } from "@yield-pilot/contracts-abi";
 import { type Address, type Hex } from "viem";
 import { contractsFor } from "../lib/contracts";
 import { useWallet } from "./useWallet";
+import { useTxState } from "./useTxState";
 
 /** Withdraw `assets` USDC from the vault. EOA path only for now. */
 export function useWithdraw() {
@@ -42,6 +43,14 @@ export function useWithdraw() {
     [vault, wallet.address, wallet.walletType, writeContractAsync, chainId],
   );
 
+  const txState = useTxState({
+    isSigning: isPending,
+    isBroadcasting: isConfirming,
+    isConfirmed: isSuccess,
+    isError: receiptError,
+    txHash,
+  });
+
   return {
     withdraw,
     isPending,
@@ -49,5 +58,6 @@ export function useWithdraw() {
     isSuccess,
     isError: receiptError,
     txHash,
+    txState,
   };
 }

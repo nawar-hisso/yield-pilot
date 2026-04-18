@@ -2,12 +2,12 @@
 
 import { usePathname } from "next/navigation";
 import { Search } from "lucide-react";
-import { short } from "../../lib/utils";
 import { useWallet } from "../../hooks/useWallet";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { HeaderBalance } from "../shared/HeaderBalance";
 import { NetworkBadge } from "../shared/NetworkBadge";
+import { AddressPill } from "../shared/AddressPill";
 import { useCommandPalette } from "../shared/CommandPalette";
 
 const TITLES: Record<string, { title: string; sub: string }> = {
@@ -53,9 +53,9 @@ export function TopBar() {
           <Badge variant={wallet.walletType === "passkey" ? "accent" : "outline"}>
             {wallet.walletType === "passkey" ? "Passkey" : "EOA"}
           </Badge>
-          <span className="hidden sm:inline font-mono text-sm text-muted-foreground">
-            {short(wallet.address)}
-          </span>
+          <div className="hidden sm:inline-flex">
+            <AddressPill address={wallet.address ?? undefined} />
+          </div>
           <Button size="sm" variant="outline" onClick={wallet.disconnect}>
             Disconnect
           </Button>

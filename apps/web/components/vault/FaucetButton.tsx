@@ -4,6 +4,7 @@ import { Coins } from "lucide-react";
 import { toast } from "sonner";
 import { formatUnits } from "viem";
 import { Button } from "../ui/button";
+import { TxStatusPill } from "../shared/TxStatusPill";
 import { useFaucet } from "../../hooks/useFaucet";
 import { useUsdcBalance } from "../../hooks/useUsdcBalance";
 import { useWallet } from "../../hooks/useWallet";
@@ -11,7 +12,7 @@ import { USDC_DECIMALS } from "../../lib/contracts";
 
 export function FaucetButton() {
   const wallet = useWallet();
-  const { claim, isPending, isConfirming, isSuccess } = useFaucet();
+  const { claim, isPending, isConfirming, isSuccess, txState } = useFaucet();
   const { data: balance, mutate } = useUsdcBalance();
 
   if (!wallet.isConnected) return null;
@@ -31,26 +32,29 @@ export function FaucetButton() {
           <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
             Your mUSDC balance
           </div>
-          <div className="mt-0.5 font-display text-lg font-semibold">{pretty}</div>
+          <div className="mt-0.5 font-mono tabular-nums text-lg font-semibold">{pretty}</div>
         </div>
       </div>
-      <Button
-        size="sm"
-        variant="outline"
-        disabled={isPending || isConfirming}
-        onClick={async () => {
-          toast.loading("Claiming 1,000 mUSDC…", { id: "faucet" });
-          try {
-            await claim();
-            await mutate();
-            toast.success("Claimed 1,000 mUSDC", { id: "faucet" });
-          } catch (err) {
-            toast.error("Faucet failed", { id: "faucet", description: (err as Error).message });
-          }
-        }}
-      >
-        {isPending ? "Confirming…" : isConfirming ? "Mining…" : isSuccess ? "+1,000 claimed" : "Claim 1,000 mUSDC"}
-      </Button>
+      <div className="flex items-center gap-3">
+        <TxStatusPill state={txState} />
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={isPending || isConfirming}
+          onClick={async () => {
+            toast.loading("Claiming 1,000 mUSDC…", { id: "faucet" });
+            try {
+              await claim();
+              await mutate();
+              toast.success("Claimed 1,000 mUSDC", { id: "faucet" });
+            } catch (err) {
+              toast.error("Faucet failed", { id: "faucet", description: (err as Error).message });
+            }
+          }}
+        >
+          {isPending ? "Confirming…" : isConfirming ? "Mining…" : isSuccess ? "+1,000 claimed" : "Claim 1,000 mUSDC"}
+        </Button>
+      </div>
     </div>
   );
 }

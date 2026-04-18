@@ -5,6 +5,7 @@ import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { MockUsdcAbi } from "@yield-pilot/contracts-abi";
 import { type Address, type Hex } from "viem";
 import { contractsFor } from "../lib/contracts";
+import { useTxState } from "./useTxState";
 
 /**
  * Claims 1,000 mUSDC from the MockUSDC faucet. EOA path only — the
@@ -16,7 +17,11 @@ export function useFaucet() {
   const { usdc } = contractsFor(chainId);
   const { writeContractAsync, isPending } = useWriteContract();
   const [txHash, setTxHash] = useState<Hex | undefined>();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
+  const {
+    isLoading: isConfirming,
+    isSuccess,
+    isError: receiptError,
+  } = useWaitForTransactionReceipt({ hash: txHash });
 
   const claim = useCallback(async () => {
     if (!usdc) throw new Error("MockUSDC address not configured");
@@ -30,5 +35,13 @@ export function useFaucet() {
     return hash;
   }, [usdc, writeContractAsync]);
 
-  return { claim, isPending, isConfirming, isSuccess, txHash };
+  const txState = useTxState({
+    isSigning: isPending,
+    isBroadcasting: isConfirming,
+    isConfirmed: isSuccess,
+    isError: receiptError,
+    txHash,
+  });
+
+  return { claim, isPending, isConfirming, isSuccess, txHash, txState };
 }

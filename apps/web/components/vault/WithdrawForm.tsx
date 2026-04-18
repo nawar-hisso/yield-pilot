@@ -5,6 +5,7 @@ import { formatUnits, parseUnits } from "viem";
 import { toast } from "sonner";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import { TxStatusPill } from "../shared/TxStatusPill";
 import { USDC_DECIMALS } from "../../lib/contracts";
 import { useWallet } from "../../hooks/useWallet";
 import { useWithdraw } from "../../hooks/useWithdraw";
@@ -19,7 +20,7 @@ export function WithdrawForm() {
 
   const { data: position, mutate: refetchPosition } = useVaultPosition();
   const { mutate: refetchBalance } = useUsdcBalance();
-  const { withdraw, isPending, isConfirming } = useWithdraw();
+  const { withdraw, isPending, isConfirming, txState } = useWithdraw();
 
   const parsed = useMemo(() => {
     if (!raw.trim()) return null;
@@ -84,7 +85,12 @@ export function WithdrawForm() {
       <Button className="w-full" disabled={disabled} onClick={onClick}>
         {!wallet.isConnected ? "Connect wallet" : exceeds ? "Exceeds position" : busy ? status ?? "Working…" : "Withdraw"}
       </Button>
-      {status && !errorMsg ? <p className="text-xs text-muted-foreground">{status}</p> : null}
+      <div className="flex items-center gap-2 min-h-[1.5rem]">
+        <TxStatusPill state={errorMsg ? "error" : txState} override={errorMsg ? "Withdraw failed" : undefined} />
+        {status && !errorMsg && txState === "idle" ? (
+          <span className="text-xs text-muted-foreground">{status}</span>
+        ) : null}
+      </div>
       {errorMsg ? <p className="text-xs text-destructive break-words">{errorMsg}</p> : null}
     </div>
   );

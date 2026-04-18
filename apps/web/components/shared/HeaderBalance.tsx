@@ -26,7 +26,7 @@ export function HeaderBalance() {
       <TooltipTrigger asChild>
         <div className="hidden sm:flex items-center gap-2 rounded-full border border-border bg-card-muted px-3 py-1.5 text-sm">
           <Coins className="h-3.5 w-3.5 text-accent" />
-          {isLoading ? <Skeleton className="h-4 w-12" /> : <span className="font-medium">{pretty}</span>}
+          {isLoading ? <Skeleton className="h-4 w-12" /> : <span className="font-mono font-medium tabular-nums">{pretty}</span>}
           <span className="text-xs text-muted-foreground">mUSDC</span>
         </div>
       </TooltipTrigger>

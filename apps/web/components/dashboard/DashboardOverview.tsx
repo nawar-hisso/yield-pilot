@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { Activity, Coins, Percent, TrendingUp } from "lucide-react";
 import { formatUnits } from "viem";
 import { StatCard } from "../shared/StatCard";
@@ -29,27 +30,103 @@ export function DashboardOverview() {
   const wallet = useWallet();
   const { data: position, isLoading } = useVaultPosition();
   const { last } = useRealtime();
+  const heroRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduced || !heroRef.current) return;
+
+    let ctx: { revert: () => void } | null = null;
+    let cancelled = false;
+
+    // Dynamic import — keeps GSAP out of SSR + shrinks initial chunk on reduced-motion bailout.
+    void (async () => {
+      const [{ default: gsap }, { ScrollTrigger }] = await Promise.all([
+        import("gsap"),
+        import("gsap/ScrollTrigger"),
+      ]);
+      if (cancelled || !heroRef.current) return;
+      gsap.registerPlugin(ScrollTrigger);
+
+      ctx = gsap.context(() => {
+        const words = gsap.utils.toArray<HTMLElement>("[data-hero-word]");
+        gsap.fromTo(
+          words,
+          { y: 32, opacity: 0, rotateX: -20 },
+          {
+            y: 0,
+            opacity: 1,
+            rotateX: 0,
+            stagger: 0.08,
+            duration: 0.9,
+            ease: "power3.out",
+          },
+        );
+
+        if (heroRef.current) {
+          gsap.to(heroRef.current, {
+            backgroundPositionY: "30%",
+            ease: "none",
+            scrollTrigger: {
+              trigger: heroRef.current,
+              start: "top top",
+              end: "bottom top",
+              scrub: true,
+            },
+          });
+        }
+      }, heroRef);
+    })();
+
+    return () => {
+      cancelled = true;
+      ctx?.revert();
+    };
+  }, []);
+
+  const heroHeadline = wallet.isConnected
+    ? ["Your", "position"]
+    : ["Deposit.", "Delegate.", "Earn."];
 
   return (
     <section className="space-y-6">
       {/* Hero */}
-      <div className="relative overflow-hidden rounded-xl border-grad bg-grad-card p-8">
+      <div
+        ref={heroRef}
+        className="relative overflow-hidden rounded-xl border-grad bg-grad-card p-8"
+        style={{ backgroundSize: "cover", backgroundPositionY: "0%" }}
+      >
         <div className="relative z-10 max-w-2xl space-y-2">
           <div className="text-xs font-medium uppercase tracking-[0.2em] text-accent">
             {wallet.isConnected ? "Your Yield" : "Welcome"}
           </div>
-          <h1 className="text-3xl lg:text-5xl font-semibold font-display leading-tight">
+          <h1 className="text-3xl lg:text-5xl font-semibold font-display leading-tight [perspective:800px]">
             {wallet.isConnected ? (
               <>
-                <NumberTicker
-                  value={num(position?.userAssets)}
-                  prefix="$"
-                  className="text-grad"
-                />
-                <span className="text-muted-foreground"> deployed</span>
+                <span data-hero-word className="inline-block">
+                  <NumberTicker
+                    value={num(position?.userAssets)}
+                    prefix="$"
+                    className="text-grad"
+                  />
+                </span>{" "}
+                <span data-hero-word className="inline-block text-muted-foreground">
+                  deployed
+                </span>
               </>
             ) : (
-              <span>Deposit. Delegate. <span className="text-grad">Earn.</span></span>
+              heroHeadline.map((word, i) => {
+                const accented = i === heroHeadline.length - 1;
+                return (
+                  <span
+                    key={word + i}
+                    data-hero-word
+                    className={`inline-block ${accented ? "text-grad" : ""} ${i > 0 ? "ml-2" : ""}`}
+                  >
+                    {word}
+                  </span>
+                );
+              })
             )}
           </h1>
           <p className="text-sm text-muted-foreground max-w-lg">
@@ -89,11 +166,11 @@ export function DashboardOverview() {
         />
         <StatCard
           label="APY"
-          value={<NumberTicker value={4.62} suffix="%" />}
+          value={<NumberTicker value={4.62} suffix="%" className="text-[color:var(--color-gold)]" />}
           hint="Simulated, 7-day rolling"
           icon={Percent}
           loading={isLoading}
-          accent="fuchsia"
+          accent="gold"
           change={{ value: "0.18%", direction: "up" }}
         />
         <StatCard

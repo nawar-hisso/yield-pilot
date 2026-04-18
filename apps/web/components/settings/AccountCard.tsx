@@ -1,25 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { UserRound, Copy, Check } from "lucide-react";
-import { toast } from "sonner";
+import { UserRound } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
-import { short } from "../../lib/utils";
+import { AddressPill } from "../shared/AddressPill";
 import { useWallet } from "../../hooks/useWallet";
 
 export function AccountCard() {
   const wallet = useWallet();
-  const [copied, setCopied] = useState(false);
-
-  async function copyAddress() {
-    if (!wallet.address) return;
-    await navigator.clipboard.writeText(wallet.address);
-    setCopied(true);
-    toast.success("Address copied");
-    setTimeout(() => setCopied(false), 1500);
-  }
 
   return (
     <Card>
@@ -38,20 +27,11 @@ export function AccountCard() {
           </div>
         ) : (
           <>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <Badge variant={wallet.walletType === "passkey" ? "accent" : "outline"}>
                 {wallet.walletType === "passkey" ? "Passkey smart account" : "External EOA"}
               </Badge>
-              <div className="font-mono text-sm">{short(wallet.address, 8, 6)}</div>
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={copyAddress}
-                aria-label="Copy address"
-                className="h-8 w-8"
-              >
-                {copied ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
-              </Button>
+              <AddressPill address={wallet.address ?? undefined} left={6} right={4} />
             </div>
             <div className="flex items-center justify-between">
               <div className="text-xs text-muted-foreground">

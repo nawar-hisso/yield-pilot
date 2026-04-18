@@ -5,6 +5,7 @@ import { formatUnits, parseUnits } from "viem";
 import { toast } from "sonner";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import { TxStatusPill } from "../shared/TxStatusPill";
 import { USDC_DECIMALS } from "../../lib/contracts";
 import { useWallet } from "../../hooks/useWallet";
 import { useUsdcBalance } from "../../hooks/useUsdcBalance";
@@ -22,7 +23,7 @@ export function DepositForm() {
   const { data: balance, mutate: refetchBalance } = useUsdcBalance();
   const { data: allowance, mutate: refetchAllowance } = useUsdcAllowance();
   const { approve, isPending: approving, isConfirming: approveConfirming } = useApprove();
-  const { deposit, isPending: depositing, isConfirming: depositConfirming } = useDeposit();
+  const { deposit, isPending: depositing, isConfirming: depositConfirming, txState } = useDeposit();
   const { mutate: refetchPosition } = useVaultPosition();
 
   const parsed = useMemo(() => {
@@ -107,7 +108,21 @@ export function DepositForm() {
                 ? "Approve + Deposit"
                 : "Deposit"}
       </Button>
-      {status && !errorMsg ? <p className="text-xs text-muted-foreground">{status}</p> : null}
+      <div className="flex items-center gap-2 min-h-[1.5rem]">
+        {approving || approveConfirming ? (
+          <TxStatusPill
+            state={approving ? "signing" : "broadcasting"}
+            override={approving ? "Approve USDC in wallet" : "Broadcasting approval…"}
+          />
+        ) : errorMsg ? (
+          <TxStatusPill state="error" override="Deposit failed" />
+        ) : (
+          <TxStatusPill state={txState} />
+        )}
+        {status && !errorMsg && txState === "idle" && !approving && !approveConfirming ? (
+          <span className="text-xs text-muted-foreground">{status}</span>
+        ) : null}
+      </div>
       {errorMsg ? <p className="text-xs text-destructive break-words">{errorMsg}</p> : null}
     </div>
   );

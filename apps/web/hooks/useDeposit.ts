@@ -6,6 +6,7 @@ import { YieldVaultAbi } from "@yield-pilot/contracts-abi";
 import { type Address, type Hex } from "viem";
 import { contractsFor } from "../lib/contracts";
 import { useWallet } from "./useWallet";
+import { useTxState } from "./useTxState";
 
 /**
  * Deposit USDC into the YieldVault. EOA path uses wagmi's useWriteContract;
@@ -50,6 +51,14 @@ export function useDeposit() {
     [vault, wallet.address, wallet.walletType, writeContractAsync, chainId],
   );
 
+  const txState = useTxState({
+    isSigning: isPending,
+    isBroadcasting: isConfirming,
+    isConfirmed: isSuccess,
+    isError: receiptError,
+    txHash,
+  });
+
   return {
     deposit,
     isPending,
@@ -57,5 +66,6 @@ export function useDeposit() {
     isSuccess,
     isError: receiptError,
     txHash,
+    txState,
   };
 }
