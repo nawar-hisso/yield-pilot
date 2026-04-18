@@ -12,7 +12,7 @@ export function DelegatePanel() {
           <h1 className="text-3xl font-semibold font-display">Delegate</h1>
           <p className="mt-1 text-muted-foreground">
             Authorize an automated strategy or teammate to move funds through your Safe — without
-            handing over key material. Every call passes through the Guard's allow-list.
+            handing over key material. Every call passes through the Guard&apos;s allow-list.
           </p>
         </header>
 

@@ -1,11 +1,26 @@
 import type { Metadata } from "next";
-import { Inter, Space_Grotesk } from "next/font/google";
+import { Inter, Syne, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "../src/providers/Providers";
 import { AppLayout } from "../components/layout/AppLayout";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-const display = Space_Grotesk({ subsets: ["latin"], variable: "--font-display" });
+const ui = Inter({
+  subsets: ["latin"],
+  variable: "--font-ui",
+  display: "swap",
+});
+const display = Syne({
+  subsets: ["latin"],
+  variable: "--font-display",
+  weight: ["500", "600", "700", "800"],
+  display: "swap",
+});
+const mono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+  weight: ["400", "500", "600"],
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "YieldPilot — DeFi Yield Management",
@@ -16,7 +31,10 @@ export const dynamic = "force-dynamic";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`dark ${inter.variable} ${display.variable}`}>
+    <html
+      lang="en"
+      className={`dark ${ui.variable} ${display.variable} ${mono.variable}`}
+    >
       <body>
         <Providers>
           <AppLayout>{children}</AppLayout>

@@ -11,7 +11,7 @@ export default function SettingsPage() {
           <h1 className="text-3xl font-semibold font-display">Settings</h1>
           <p className="mt-1 text-muted-foreground">
             Notifications live in apps/api (Prisma + Postgres). Network and account sections reflect
-            the wallet + chain you're currently on.
+            the wallet + chain you&apos;re currently on.
           </p>
         </header>
 

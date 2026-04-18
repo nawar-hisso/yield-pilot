@@ -38,7 +38,7 @@ function VaultPanelBody() {
       {wallet.walletType === "passkey" ? (
         <p className="text-xs text-muted-foreground text-center">
           Gasless deposits via the passkey smart account are unsupported on localhost
-          (Pimlico doesn't serve chainId 31337). Switch to an EOA wallet to test writes,
+          (Pimlico doesn&apos;t serve chainId 31337). Switch to an EOA wallet to test writes,
           or redeploy to Sepolia.
         </p>
       ) : null}

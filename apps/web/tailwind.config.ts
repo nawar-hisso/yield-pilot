@@ -1,5 +1,5 @@
-// YieldPilot — crypto-native bold.
-// Brand tokens map to CSS vars declared in app/globals.css.
+// YieldPilot — mandate-compliant token map.
+// All color literals live in app/globals.css. This file only wires names.
 
 import type { Config } from "tailwindcss";
 
@@ -19,11 +19,12 @@ const config: Config = {
     },
     extend: {
       fontFamily: {
-        sans: ["var(--font-inter)", "ui-sans-serif", "system-ui", "sans-serif"],
-        display: ["var(--font-display)", "var(--font-inter)", "sans-serif"],
-        mono: ["ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
+        sans:    ["var(--font-ui)", "var(--font-inter)", "ui-sans-serif", "system-ui", "sans-serif"],
+        display: ["var(--font-display)", "var(--font-ui)", "sans-serif"],
+        mono:    ["var(--font-mono)", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
       },
       colors: {
+        // shadcn tokens (downstream components)
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -65,6 +66,20 @@ const config: Config = {
         },
         success: "hsl(var(--success))",
         warning: "hsl(var(--warning))",
+
+        // mandate tokens — map to the CSS vars in :root
+        base:         "var(--color-base)",
+        surface:      "var(--color-surface)",
+        "card-hover": "var(--color-card-hover)",
+        "border-mid": "var(--color-border-mid)",
+        "border-glow": "var(--color-border-glow)",
+        "accent-dim": "var(--color-accent-dim)",
+        "accent-glow": "var(--color-accent-glow)",
+        "accent-2":   "var(--color-accent-2)",
+        gold:         "var(--color-gold)",
+        text1:        "var(--color-text-1)",
+        text2:        "var(--color-text-2)",
+        text3:        "var(--color-text-3)",
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -72,25 +87,50 @@ const config: Config = {
         sm: "calc(var(--radius) - 8px)",
       },
       boxShadow: {
-        glow: "0 0 0 1px hsl(187 85% 53% / 0.15), 0 12px 40px -16px hsl(187 85% 53% / 0.35)",
+        glow:
+          "0 0 0 1px rgb(var(--accent-rgb) / 0.15), 0 12px 40px -16px rgb(var(--accent-rgb) / 0.35)",
         "glow-violet":
-          "0 0 0 1px hsl(263 85% 58% / 0.2), 0 16px 48px -18px hsl(263 85% 58% / 0.4)",
+          "0 0 0 1px rgb(var(--accent-2-rgb) / 0.20), 0 16px 48px -18px rgb(var(--accent-2-rgb) / 0.40)",
+      },
+      transitionTimingFunction: {
+        "out-quart": "var(--ease-out-quart)",
+        back: "var(--ease-back)",
+      },
+      transitionDuration: {
+        fast: "var(--duration-fast)",
+        base: "var(--duration-base)",
+        slow: "var(--duration-slow)",
       },
       keyframes: {
-        "fade-in": { from: { opacity: "0" }, to: { opacity: "1" } },
+        "fade-in":  { from: { opacity: "0" }, to: { opacity: "1" } },
+        "fade-up":  {
+          from: { opacity: "0", transform: "translateY(16px)" },
+          to:   { opacity: "1", transform: "translateY(0)" },
+        },
         "slide-up": {
           from: { opacity: "0", transform: "translateY(8px)" },
-          to: { opacity: "1", transform: "translateY(0)" },
+          to:   { opacity: "1", transform: "translateY(0)" },
         },
         shimmer: {
-          "0%": { backgroundPosition: "-200% 0" },
+          "0%":   { backgroundPosition: "-200% 0" },
           "100%": { backgroundPosition: "200% 0" },
+        },
+        "pulse-glow": {
+          "0%, 100%": { boxShadow: "0 0 12px rgb(var(--accent-rgb) / 0.20)" },
+          "50%":      { boxShadow: "0 0 28px rgb(var(--accent-rgb) / 0.50)" },
+        },
+        float: {
+          "0%, 100%": { transform: "translateY(0px)" },
+          "50%":      { transform: "translateY(-8px)" },
         },
       },
       animation: {
-        "fade-in": "fade-in 200ms ease-out",
-        "slide-up": "slide-up 240ms cubic-bezier(0.16, 1, 0.3, 1)",
-        shimmer: "shimmer 1.8s linear infinite",
+        "fade-in":    "fade-in 200ms ease-out",
+        "fade-up":    "fade-up 220ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "slide-up":   "slide-up 240ms cubic-bezier(0.16, 1, 0.3, 1)",
+        shimmer:      "shimmer 1.4s linear infinite",
+        "pulse-glow": "pulse-glow 2.4s ease-in-out infinite",
+        float:        "float 4s ease-in-out infinite",
       },
     },
   },

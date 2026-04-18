@@ -24,7 +24,7 @@ export function SafeStatusCard() {
         <div>
           <CardTitle className="font-display">Smart wallet</CardTitle>
           <CardDescription>
-            bounded by the Guard's selector allow-list.
+            bounded by the Guard&apos;s selector allow-list.
           </CardDescription>
         </div>
         <Badge variant={safeAddress ? "accent" : "outline"}>
