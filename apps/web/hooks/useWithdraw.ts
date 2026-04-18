@@ -33,7 +33,7 @@ export function useWithdraw() {
 
       const hash = await writeContractAsync({
         address: vault as Address,
-        abi: YieldVaultAbi as never,
+        abi: YieldVaultAbi,
         functionName: "withdraw",
         args: [assets, wallet.address, wallet.address],
       });

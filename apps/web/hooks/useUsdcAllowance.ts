@@ -15,13 +15,12 @@ export function useUsdcAllowance() {
   return useSWR(
     wallet.address && usdc && vault ? ["usdc-allow", usdc, wallet.address, vault] : null,
     async ([, token, owner, spender]) => {
-      const raw = await publicClient.readContract({
+      return publicClient.readContract({
         address: token as Address,
-        abi: MockUsdcAbi as never,
+        abi: MockUsdcAbi,
         functionName: "allowance",
         args: [owner as Address, spender as Address],
       });
-      return raw as bigint;
     },
     { refreshInterval: 15_000 },
   );

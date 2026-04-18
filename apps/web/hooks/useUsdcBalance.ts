@@ -15,13 +15,12 @@ export function useUsdcBalance() {
   return useSWR(
     wallet.address && usdc ? ["usdc-bal", usdc, wallet.address] : null,
     async ([, token, user]) => {
-      const raw = await publicClient.readContract({
+      return publicClient.readContract({
         address: token as Address,
-        abi: MockUsdcAbi as never,
+        abi: MockUsdcAbi,
         functionName: "balanceOf",
         args: [user as Address],
       });
-      return raw as bigint;
     },
     { refreshInterval: 15_000 },
   );

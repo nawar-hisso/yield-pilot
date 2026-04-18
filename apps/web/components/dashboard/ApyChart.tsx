@@ -35,7 +35,7 @@ export function ApyChart() {
             </CardDescription>
           </div>
           <div className="text-right">
-            <div className="font-display text-xl font-semibold tabular-nums">
+            <div className="font-mono tabular-nums text-xl font-semibold text-[color:var(--color-gold)]">
               {data[data.length - 1]?.apy.toFixed(2)}%
             </div>
             <div className="text-[11px] text-muted-foreground">estimated annualised</div>

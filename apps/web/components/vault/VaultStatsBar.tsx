@@ -33,9 +33,9 @@ export function VaultStatsBar() {
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-border bg-card p-4">
+    <div className="rounded-lg border border-border bg-card p-4 transition-[border-color,background] duration-fast ease-out-quart hover:border-[color:var(--color-border-glow)]">
       <div className="text-xs text-muted-foreground uppercase tracking-wide">{label}</div>
-      <div className="mt-1 text-xl font-semibold">{value}</div>
+      <div className="mt-1 font-mono tabular-nums text-xl font-semibold">{value}</div>
     </div>
   );
 }

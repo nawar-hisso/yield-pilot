@@ -5,6 +5,7 @@ import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { MockUsdcAbi } from "@yield-pilot/contracts-abi";
 import { type Address, type Hex } from "viem";
 import { contractsFor } from "../lib/contracts";
+import { useTxState } from "./useTxState";
 
 /** USDC → YieldVault approval. Caller passes the exact allowance amount. */
 export function useApprove() {
@@ -12,14 +13,18 @@ export function useApprove() {
   const { usdc, vault } = contractsFor(chainId);
   const { writeContractAsync, isPending } = useWriteContract();
   const [txHash, setTxHash] = useState<Hex | undefined>();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
+  const {
+    isLoading: isConfirming,
+    isSuccess,
+    isError: receiptError,
+  } = useWaitForTransactionReceipt({ hash: txHash });
 
   const approve = useCallback(
     async (amount: bigint) => {
       if (!usdc || !vault) throw new Error("USDC or Vault address not configured");
       const hash = await writeContractAsync({
         address: usdc as Address,
-        abi: MockUsdcAbi as never,
+        abi: MockUsdcAbi,
         functionName: "approve",
         args: [vault as Address, amount],
       });
@@ -29,5 +34,13 @@ export function useApprove() {
     [usdc, vault, writeContractAsync],
   );
 
-  return { approve, isPending, isConfirming, isSuccess, txHash };
+  const txState = useTxState({
+    isSigning: isPending,
+    isBroadcasting: isConfirming,
+    isConfirmed: isSuccess,
+    isError: receiptError,
+    txHash,
+  });
+
+  return { approve, isPending, isConfirming, isSuccess, isError: receiptError, txHash, txState };
 }

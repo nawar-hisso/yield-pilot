@@ -17,10 +17,10 @@ export function useVault() {
       if (!VAULT_ADDRESS) return null;
       const totalAssets = await publicClient.readContract({
         address: VAULT_ADDRESS,
-        abi: YieldVaultAbi as never,
+        abi: YieldVaultAbi,
         functionName: "totalAssets",
       });
-      return { totalAssets: totalAssets as bigint };
+      return { totalAssets };
     },
     { refreshInterval: 15_000 },
   );

@@ -1,12 +1,19 @@
 import * as React from "react";
 import { cn } from "../../lib/utils";
 
-const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
+interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
+  /** When true, applies the mandate hover affordance (scale 1.015 + border-glow). */
+  hoverable?: boolean;
+}
+
+const Card = React.forwardRef<HTMLDivElement, CardProps>(
+  ({ className, hoverable = true, ...props }, ref) => (
     <div
       ref={ref}
       className={cn(
         "rounded-lg border border-border bg-card text-card-foreground shadow-sm",
+        hoverable &&
+          "transition-[transform,border-color,background] duration-fast ease-out-quart hover:border-[color:var(--color-border-glow)] hover:scale-[1.015] motion-reduce:hover:scale-100",
         className,
       )}
       {...props}

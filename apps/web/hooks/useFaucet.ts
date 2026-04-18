@@ -27,7 +27,7 @@ export function useFaucet() {
     if (!usdc) throw new Error("MockUSDC address not configured");
     const hash = await writeContractAsync({
       address: usdc as Address,
-      abi: MockUsdcAbi as never,
+      abi: MockUsdcAbi,
       functionName: "faucet",
       args: [],
     });

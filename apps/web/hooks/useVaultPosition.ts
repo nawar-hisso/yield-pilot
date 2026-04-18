@@ -30,36 +30,36 @@ export function useVaultPosition() {
     async () => {
       if (!vault) return null;
 
-      const [totalAssets, sharesPerUsdc] = (await Promise.all([
+      const [totalAssets, sharesPerUsdc] = await Promise.all([
         publicClient.readContract({
           address: vault,
-          abi: YieldVaultAbi as never,
+          abi: YieldVaultAbi,
           functionName: "totalAssets",
         }),
         publicClient.readContract({
           address: vault,
-          abi: YieldVaultAbi as never,
+          abi: YieldVaultAbi,
           functionName: "convertToShares",
           args: [ONE_USDC],
         }),
-      ])) as [bigint, bigint];
+      ]);
 
       let userShares = 0n;
       let userAssets = 0n;
       if (wallet.address) {
-        userShares = (await publicClient.readContract({
+        userShares = await publicClient.readContract({
           address: vault,
-          abi: YieldVaultAbi as never,
+          abi: YieldVaultAbi,
           functionName: "balanceOf",
           args: [wallet.address as Address],
-        })) as bigint;
+        });
         if (userShares > 0n) {
-          userAssets = (await publicClient.readContract({
+          userAssets = await publicClient.readContract({
             address: vault,
-            abi: YieldVaultAbi as never,
+            abi: YieldVaultAbi,
             functionName: "convertToAssets",
             args: [userShares],
-          })) as bigint;
+          });
         }
       }
 

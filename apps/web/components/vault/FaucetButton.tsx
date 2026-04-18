@@ -52,7 +52,15 @@ export function FaucetButton() {
             }
           }}
         >
-          {isPending ? "Confirming…" : isConfirming ? "Mining…" : isSuccess ? "+1,000 claimed" : "Claim 1,000 mUSDC"}
+          {txState === "error"
+            ? "Try again"
+            : isPending
+              ? "Confirm in wallet…"
+              : isConfirming
+                ? "Broadcasting…"
+                : isSuccess
+                  ? "+1,000 claimed"
+                  : "Claim 1,000 mUSDC"}
         </Button>
       </div>
     </div>

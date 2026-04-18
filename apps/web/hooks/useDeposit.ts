@@ -41,7 +41,7 @@ export function useDeposit() {
 
       const hash = await writeContractAsync({
         address: vault as Address,
-        abi: YieldVaultAbi as never,
+        abi: YieldVaultAbi,
         functionName: "deposit",
         args: [assets, wallet.address],
       });
