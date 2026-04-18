@@ -58,13 +58,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     else window.localStorage.removeItem(STORAGE_KEY);
   }, [activePath]);
 
-  // Auto-set path based on actual connection state (e.g. user reconnects wagmi).
+  // Auto-set path based on wagmi's actual connection state so Reown-initiated
+  // connects (e.g. the user reopens the Reown modal directly) stay in sync.
+  // NOTE: we deliberately do NOT auto-set "passkey" based on the stored passkey
+  // record. The record survives Disconnect by design (so the address stays
+  // stable across sessions), so auto-setting it here would make Disconnect a
+  // no-op — the user must explicitly choose the passkey path via the chooser.
   useEffect(() => {
     if (eoa.isConnected && activePath !== "eoa") setActivePath("eoa");
   }, [eoa.isConnected, activePath]);
-  useEffect(() => {
-    if (passkey.passkey && activePath !== "passkey") setActivePath("passkey");
-  }, [passkey.passkey, activePath]);
 
   const openChooser = useCallback(() => setChooserOpen(true), []);
   const closeChooser = useCallback(() => setChooserOpen(false), []);
