@@ -97,20 +97,20 @@ export function DashboardOverview() {
         style={{ backgroundSize: "cover", backgroundPositionY: "0%" }}
       >
         <div className="relative z-10 max-w-2xl space-y-2">
-          <div className="text-xs font-medium uppercase tracking-[0.2em] text-accent">
+          <div className="text-xs font-medium uppercase tracking-[0.1em] text-accent">
             {wallet.isConnected ? "Your Yield" : "Welcome"}
           </div>
-          <h1 className="text-3xl lg:text-5xl font-semibold font-display leading-tight [perspective:800px]">
+          <h1 className="text-3xl lg:text-5xl leading-tight [perspective:800px]">
             {wallet.isConnected ? (
               <>
-                <span data-hero-word className="inline-block">
+                <span data-hero-word className="inline-block font-extrabold">
                   <NumberTicker
                     value={num(position?.userAssets)}
                     prefix="$"
                     className="text-grad"
                   />
                 </span>{" "}
-                <span data-hero-word className="inline-block text-muted-foreground">
+                <span data-hero-word className="inline-block font-light text-[color:var(--color-text-2)]">
                   deployed
                 </span>
               </>
@@ -121,7 +121,7 @@ export function DashboardOverview() {
                   <span
                     key={word + i}
                     data-hero-word
-                    className={`inline-block ${accented ? "text-grad" : ""} ${i > 0 ? "ml-2" : ""}`}
+                    className={`inline-block font-extrabold ${accented ? "text-grad" : ""} ${i > 0 ? "ml-2" : ""}`}
                   >
                     {word}
                   </span>

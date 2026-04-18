@@ -1,27 +1,21 @@
 import type { Metadata } from "next";
-import { Inter, Manrope, JetBrains_Mono } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
+import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 import { Providers } from "../src/providers/Providers";
 import { AppLayout } from "../components/layout/AppLayout";
 import { ParticleFieldLoader } from "../components/shared/ParticleFieldLoader";
 
-const ui = Inter({
+const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
-  variable: "--font-ui",
-  display: "swap",
-});
-const display = Manrope({
-  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700", "800"],
   variable: "--font-display",
-  weight: ["500", "600", "700", "800"],
   display: "swap",
 });
-const mono = JetBrains_Mono({
-  subsets: ["latin"],
-  variable: "--font-mono",
-  weight: ["400", "500", "600"],
-  display: "swap",
-});
+
+// Geist Mono ships as a variable font via the `geist` package.
+// Its `variable` is already `--font-geist-mono`; we alias on body className.
+const geistMono = GeistMono;
 
 export const metadata: Metadata = {
   title: "YieldPilot — DeFi Yield Management",
@@ -32,11 +26,11 @@ export const dynamic = "force-dynamic";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html
-      lang="en"
-      className={`dark ${ui.variable} ${display.variable} ${mono.variable}`}
-    >
-      <body>
+    <html lang="en" className="dark">
+      <body
+        className={`${jakarta.variable} ${geistMono.variable}`}
+        style={{ ["--font-mono" as string]: "var(--font-geist-mono)" }}
+      >
         <ParticleFieldLoader />
         <Providers>
           <AppLayout>{children}</AppLayout>

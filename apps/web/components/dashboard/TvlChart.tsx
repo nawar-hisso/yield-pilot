@@ -53,17 +53,17 @@ export function TvlChart() {
             </CardDescription>
           </div>
           <div className="text-right">
-            <div className="font-display text-xl font-semibold tabular-nums">
+            <div className="text-xl font-bold tabular-nums">
               ${data[data.length - 1]?.tvl.toLocaleString()}
             </div>
-            <div className="text-[11px] text-success">
+            <div className="text-[11px] font-medium text-success">
               +{((data[data.length - 1]!.tvl - data[0]!.tvl) / data[0]!.tvl * 100).toFixed(1)}% · 30d
             </div>
           </div>
         </div>
       </CardHeader>
       <CardContent className="p-0">
-        <div className="h-40 w-full">
+        <div className="h-40 w-full font-mono text-[11px]">
           <ResponsiveContainer>
             <AreaChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
               <defs>

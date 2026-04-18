@@ -74,13 +74,13 @@ export function StatCard({
       />
       <div className="flex items-start justify-between">
         <div className="min-w-0">
-          <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-[color:var(--color-text-3)]">
             {label}
           </div>
-          <div className="mt-2 text-3xl font-semibold font-display leading-none tracking-tight">
+          <div className="mt-2 text-3xl font-bold leading-none tracking-tight">
             {loading ? <Skeleton className="h-7 w-24" /> : value}
           </div>
-          {hint ? <div className="mt-2 text-xs text-muted-foreground">{hint}</div> : null}
+          {hint ? <div className="mt-2 text-xs font-normal text-[color:var(--color-text-2)]">{hint}</div> : null}
           {change ? (
             <div
               className={cn(

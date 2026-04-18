@@ -47,7 +47,7 @@ export function NumberTicker({
   }, [spring, format, prefix, suffix]);
 
   return (
-    <span ref={ref} className={`font-mono tabular-nums ${className ?? ""}`}>
+    <span ref={ref} className={`tabular-nums ${className ?? ""}`}>
       {`${prefix ?? ""}${format(0)}${suffix ?? ""}`}
     </span>
   );

@@ -50,15 +50,15 @@ export function ApyChart() {
             </CardDescription>
           </div>
           <div className="text-right">
-            <div className="font-mono tabular-nums text-xl font-semibold text-[color:var(--color-gold)]">
+            <div className="tabular-nums text-xl font-bold text-[color:var(--color-gold)]">
               {data[data.length - 1]?.apy.toFixed(2)}%
             </div>
-            <div className="text-[11px] text-muted-foreground">estimated annualised</div>
+            <div className="text-[11px] font-normal text-[color:var(--color-text-2)]">estimated annualised</div>
           </div>
         </div>
       </CardHeader>
       <CardContent className="p-0">
-        <div className="h-40 w-full">
+        <div className="h-40 w-full font-mono text-[11px]">
           <ResponsiveContainer>
             <LineChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
               <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />

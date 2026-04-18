@@ -26,8 +26,8 @@ export function TopBar() {
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-[color:var(--color-border)] bg-[color:var(--color-surface)]/75 px-4 lg:px-8 backdrop-blur-xl">
       <div className="min-w-0 flex-1">
-        <div className="font-display text-base font-semibold leading-tight truncate">{meta.title}</div>
-        <div className="hidden sm:block text-xs text-muted-foreground truncate">{meta.sub}</div>
+        <div className="text-base font-semibold leading-tight truncate">{meta.title}</div>
+        <div className="hidden sm:block text-xs font-normal text-[color:var(--color-text-2)] truncate">{meta.sub}</div>
       </div>
 
       <button

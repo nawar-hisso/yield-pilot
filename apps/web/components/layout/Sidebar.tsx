@@ -59,11 +59,11 @@ export function Sidebar() {
       <Link
         href="/"
         aria-label="YieldPilot home"
-        className="flex items-center gap-2.5 px-5 py-5 font-display text-lg font-semibold"
+        className="flex items-center gap-2.5 px-5 py-5"
       >
         <span
           aria-hidden
-          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-grad-hero shadow-glow text-primary-foreground text-sm font-bold"
+          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-grad-hero shadow-glow text-primary-foreground text-sm font-extrabold"
         >
           Y
         </span>
@@ -75,7 +75,7 @@ export function Sidebar() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -6 }}
               transition={{ duration: 0.15 }}
-              className="text-grad whitespace-nowrap"
+              className="text-grad whitespace-nowrap text-[18px] font-extrabold"
             >
               YieldPilot
             </motion.span>
@@ -96,7 +96,7 @@ export function Sidebar() {
                 collapsed ? "px-3 justify-center" : "px-3",
                 active
                   ? "bg-[color:var(--color-accent-glow)] text-[color:var(--color-accent)] font-semibold"
-                  : "text-[color:var(--color-text-2)] hover:bg-[color:var(--color-card-hover)] hover:text-[color:var(--color-text-1)]",
+                  : "text-[color:var(--color-text-2)] font-normal hover:bg-[color:var(--color-card-hover)] hover:text-[color:var(--color-text-1)]",
               )}
             >
               {active ? (
@@ -140,7 +140,7 @@ export function Sidebar() {
         )}
       >
         {!collapsed ? (
-          <div className="min-w-0 text-[11px] text-muted-foreground">
+          <div className="min-w-0 text-[11px] font-light text-[color:var(--color-text-3)]">
             <div>v0.0.1 · dev</div>
             <div className="mt-0.5 truncate">YieldPilot</div>
           </div>
