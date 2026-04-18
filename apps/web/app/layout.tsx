@@ -11,6 +11,10 @@ export const metadata: Metadata = {
   description: "Deposit, delegate, and track yield strategies from one dashboard.",
 };
 
+// Wallet connect + passkey provider trees rely on browser-only APIs
+// (navigator.credentials, IndexedDB, Reown modal). Skip static generation.
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`dark ${inter.variable}`}>

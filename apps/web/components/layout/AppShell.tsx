@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn, short } from "../../lib/utils";
-import { useWeb3Auth } from "../../src/providers/Web3Provider";
+import { useWallet } from "../../hooks/useWallet";
+import { Badge } from "../ui/badge";
+import { Button } from "../ui/button";
+import { ConnectChooserDialog } from "../wallet/ConnectChooserDialog";
 
 const NAV = [
   { href: "/", label: "Dashboard" },
@@ -15,7 +18,7 @@ const NAV = [
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { address, isConnected, isLoading, connect, disconnect } = useWeb3Auth();
+  const wallet = useWallet();
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -40,27 +43,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             ))}
           </nav>
           <div className="flex items-center gap-3">
-            {isLoading ? (
+            {wallet.isLoading ? (
               <span className="text-xs text-muted-foreground">Loading…</span>
-            ) : isConnected ? (
+            ) : wallet.isConnected ? (
               <>
+                <Badge variant={wallet.walletType === "passkey" ? "accent" : "outline"}>
+                  {wallet.walletType === "passkey" ? "Passkey" : "EOA"}
+                </Badge>
                 <span className="hidden sm:inline font-mono text-sm text-muted-foreground">
-                  {short(address)}
+                  {short(wallet.address)}
                 </span>
-                <button
-                  onClick={disconnect}
-                  className="rounded-md border border-border px-3 py-1.5 text-sm hover:border-accent hover:text-accent"
-                >
+                <Button size="sm" variant="outline" onClick={wallet.disconnect}>
                   Disconnect
-                </button>
+                </Button>
               </>
             ) : (
-              <button
-                onClick={connect}
-                className="rounded-md bg-accent px-3 py-1.5 text-sm text-accent-foreground font-medium hover:opacity-90"
-              >
+              <Button size="sm" onClick={wallet.openChooser}>
                 Connect
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -69,6 +69,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <footer className="border-t border-border py-6 text-center text-xs text-muted-foreground">
         YieldPilot · Sepolia + Base Sepolia · Scaffolded
       </footer>
+      <ConnectChooserDialog />
     </div>
   );
 }

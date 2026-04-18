@@ -1,8 +1,8 @@
-import { Router } from "express";
+import { Router, type Router as ExpressRouter } from "express";
 import { z } from "zod";
 import { prisma } from "@yield-pilot/database";
 
-export const userRouter = Router();
+export const userRouter: ExpressRouter = Router();
 
 const addressParam = z.object({ address: z.string().regex(/^0x[a-fA-F0-9]{40}$/) });
 

@@ -13,6 +13,8 @@ const OUT_FILE = resolve(__dirname, "../src/index.ts");
 const TARGETS = [
   ["YieldVault", "core/YieldVault.sol/YieldVault.json"],
   ["Paymaster", "core/Paymaster.sol/Paymaster.json"],
+  ["YieldPilotAccount", "core/YieldPilotAccount.sol/YieldPilotAccount.json"],
+  ["YieldPilotAccountFactory", "core/YieldPilotAccountFactory.sol/YieldPilotAccountFactory.json"],
   ["MockUsdc", "mocks/MockUSDC.sol/MockUSDC.json"],
   ["MockAave", "mocks/MockAave.sol/MockAave.json"],
 ];
