@@ -1,12 +1,14 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { Search } from "lucide-react";
 import { short } from "../../lib/utils";
 import { useWallet } from "../../hooks/useWallet";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { HeaderBalance } from "../shared/HeaderBalance";
 import { NetworkBadge } from "../shared/NetworkBadge";
+import { useCommandPalette } from "../shared/CommandPalette";
 
 const TITLES: Record<string, { title: string; sub: string }> = {
   "/": { title: "Dashboard", sub: "Portfolio value · P&L · live activity" },
@@ -18,6 +20,7 @@ const TITLES: Record<string, { title: string; sub: string }> = {
 export function TopBar() {
   const pathname = usePathname();
   const wallet = useWallet();
+  const palette = useCommandPalette();
   const meta = TITLES[pathname] ?? { title: "YieldPilot", sub: "" };
 
   return (
@@ -26,6 +29,19 @@ export function TopBar() {
         <div className="font-display text-base font-semibold leading-tight truncate">{meta.title}</div>
         <div className="hidden sm:block text-xs text-muted-foreground truncate">{meta.sub}</div>
       </div>
+
+      <button
+        type="button"
+        onClick={() => palette.setOpen(true)}
+        aria-label="Open command palette"
+        className="hidden md:inline-flex h-9 items-center gap-2 rounded-md border border-border bg-card-muted/40 px-2.5 text-xs text-muted-foreground transition-colors hover:bg-card-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <Search className="h-3.5 w-3.5" strokeWidth={1.75} />
+        <span>Search…</span>
+        <kbd className="ml-4 inline-flex h-5 items-center rounded border border-border bg-background/60 px-1.5 text-[10px]">
+          ⌘K
+        </kbd>
+      </button>
 
       <NetworkBadge />
       <HeaderBalance />

@@ -4,6 +4,7 @@ import { Activity, Coins, Percent, TrendingUp } from "lucide-react";
 import { formatUnits } from "viem";
 import { StatCard } from "../shared/StatCard";
 import { EmptyState } from "../shared/EmptyState";
+import { NumberTicker } from "../shared/NumberTicker";
 import { TvlChart } from "./TvlChart";
 import { ApyChart } from "./ApyChart";
 import { useRealtime } from "../../hooks/useRealtime";
@@ -17,6 +18,11 @@ function fmt(v: bigint | undefined) {
   if (v === undefined) return "—";
   const num = Number(formatUnits(v, USDC_DECIMALS));
   return num.toLocaleString(undefined, { maximumFractionDigits: 2 });
+}
+
+function num(v: bigint | undefined): number {
+  if (v === undefined) return 0;
+  return Number(formatUnits(v, USDC_DECIMALS));
 }
 
 export function DashboardOverview() {
@@ -35,7 +41,11 @@ export function DashboardOverview() {
           <h1 className="text-3xl lg:text-5xl font-semibold font-display leading-tight">
             {wallet.isConnected ? (
               <>
-                <span className="text-grad">${fmt(position?.userAssets)}</span>
+                <NumberTicker
+                  value={num(position?.userAssets)}
+                  prefix="$"
+                  className="text-grad"
+                />
                 <span className="text-muted-foreground"> deployed</span>
               </>
             ) : (
@@ -63,7 +73,7 @@ export function DashboardOverview() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="Portfolio Value"
-          value={`$${fmt(position?.userAssets)}`}
+          value={<NumberTicker value={num(position?.userAssets)} prefix="$" />}
           hint="USDC value of your vault shares"
           icon={Coins}
           loading={isLoading}
@@ -79,7 +89,7 @@ export function DashboardOverview() {
         />
         <StatCard
           label="APY"
-          value="4.62%"
+          value={<NumberTicker value={4.62} suffix="%" />}
           hint="Simulated, 7-day rolling"
           icon={Percent}
           loading={isLoading}
@@ -88,7 +98,7 @@ export function DashboardOverview() {
         />
         <StatCard
           label="TVL"
-          value={`$${fmt(position?.totalAssets)}`}
+          value={<NumberTicker value={num(position?.totalAssets)} prefix="$" />}
           hint="Across all depositors"
           icon={Activity}
           loading={isLoading}
