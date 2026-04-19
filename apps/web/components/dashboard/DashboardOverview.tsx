@@ -98,7 +98,7 @@ export function DashboardOverview() {
       >
         <div className="relative z-10 max-w-2xl space-y-2">
           <div className="text-xs font-medium uppercase tracking-[0.1em] text-accent">
-            {wallet.isConnected ? "Your Yield" : "Welcome"}
+            {wallet.isConnected ? "Your Position" : "Welcome"}
           </div>
           <h1 className="text-3xl lg:text-5xl leading-tight [perspective:800px]">
             {wallet.isConnected ? (
@@ -166,12 +166,11 @@ export function DashboardOverview() {
         />
         <StatCard
           label="APY"
-          value={<NumberTicker value={4.62} suffix="%" className="text-[color:var(--color-gold)]" />}
-          hint="Simulated, 7-day rolling"
+          value="—"
+          hint="Arrives with the subgraph"
           icon={Percent}
           loading={isLoading}
           accent="gold"
-          change={{ value: "0.18%", direction: "up" }}
         />
         <StatCard
           label="TVL"

@@ -2,42 +2,13 @@
 
 import { useMemo } from "react";
 import useSWR from "swr";
+import { Percent } from "lucide-react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
+import { EmptyState } from "../shared/EmptyState";
 import { fetchDailyTvl, type DailyTvlPoint } from "../../lib/subgraphQueries";
 
 type Point = { day: string; apy: number };
-
-/** mulberry32 — tiny seeded PRNG. Deterministic on SSR + CSR. Used as the fallback
- *  series when we don't yet have enough subgraph history to derive APY. */
-function mulberry32(seed: number): () => number {
-  let a = seed;
-  return () => {
-    a = (a + 0x6d2b79f5) | 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-const DEMO_EPOCH_MS = Date.UTC(2026, 3, 1);
-
-function mockApy(days = 30): Point[] {
-  const rand = mulberry32(0x5e4d1 + days);
-  const out: Point[] = [];
-  let v = 4.6;
-  for (let i = days; i >= 0; i--) {
-    v += Math.sin(i / 5) * 0.1 + (rand() - 0.4) * 0.08;
-    v = Math.max(1.5, Math.min(7, v));
-    const d = new Date(DEMO_EPOCH_MS - i * 86_400_000);
-    out.push({
-      day: d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }),
-      apy: Number(v.toFixed(2)),
-    });
-  }
-  return out;
-}
 
 /**
  * Derive a rough APY proxy from the daily-TVL series. Strategy yield accrues
@@ -71,14 +42,14 @@ function derivedApy(points: DailyTvlPoint[]): Point[] {
 }
 
 export function ApyChart() {
-  const { data: points } = useSWR<DailyTvlPoint[] | null>(
+  const { data: points, isLoading } = useSWR<DailyTvlPoint[] | null>(
     "tvl-daily-30",
     () => fetchDailyTvl(30),
     { refreshInterval: 60_000, revalidateOnFocus: false },
   );
 
   const live = points !== undefined && points !== null && points.length > 7;
-  const chart = useMemo(() => (live ? derivedApy(points as DailyTvlPoint[]) : mockApy()), [live, points]);
+  const chart = useMemo(() => (live ? derivedApy(points as DailyTvlPoint[]) : []), [live, points]);
   const last = chart[chart.length - 1];
 
   return (
@@ -89,60 +60,70 @@ export function ApyChart() {
             <CardTitle className="font-display text-base">APY</CardTitle>
             <CardDescription className="text-xs">
               {live
-                ? `7-day rolling · derived from subgraph inflow deltas`
-                : `Simulated until on-chain history accumulates.`}
+                ? "7-day rolling · derived from subgraph inflow deltas"
+                : "Chart starts once the subgraph has 7+ days of history."}
             </CardDescription>
           </div>
-          <div className="text-right">
-            <div className="tabular-nums text-xl font-bold text-[color:var(--color-gold)]">
-              {last ? last.apy.toFixed(2) : "—"}%
+          {live ? (
+            <div className="text-right">
+              <div className="tabular-nums text-xl font-bold text-[color:var(--color-gold)]">
+                {last ? last.apy.toFixed(2) : "—"}%
+              </div>
+              <div className="text-[11px] font-normal text-[color:var(--color-text-2)]">inflow-derived</div>
             </div>
-            <div className="text-[11px] font-normal text-[color:var(--color-text-2)]">
-              {live ? "inflow-derived" : "estimated annualised"}
-            </div>
-          </div>
+          ) : null}
         </div>
       </CardHeader>
       <CardContent className="p-0">
-        <div className="h-40 w-full font-mono text-[11px]">
-          <ResponsiveContainer>
-            <LineChart data={chart} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
-              <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />
-              <XAxis
-                dataKey="day"
-                stroke="hsl(var(--muted-foreground))"
-                fontSize={10}
-                tickLine={false}
-                axisLine={false}
-                interval={Math.ceil(chart.length / 6)}
-              />
-              <YAxis
-                stroke="hsl(var(--muted-foreground))"
-                fontSize={10}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(v: number) => `${v.toFixed(1)}%`}
-                width={40}
-              />
-              <Tooltip
-                contentStyle={{
-                  background: "hsl(var(--popover))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: "0.5rem",
-                  fontSize: "12px",
-                }}
-                formatter={(v: number) => [`${v.toFixed(2)}%`, "APY"]}
-              />
-              <Line
-                type="monotone"
-                dataKey="apy"
-                stroke="hsl(var(--violet))"
-                strokeWidth={2}
-                dot={false}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+        {live ? (
+          <div className="h-40 w-full font-mono text-[11px]">
+            <ResponsiveContainer>
+              <LineChart data={chart} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+                <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />
+                <XAxis
+                  dataKey="day"
+                  stroke="hsl(var(--muted-foreground))"
+                  fontSize={10}
+                  tickLine={false}
+                  axisLine={false}
+                  interval={Math.ceil(chart.length / 6)}
+                />
+                <YAxis
+                  stroke="hsl(var(--muted-foreground))"
+                  fontSize={10}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(v: number) => `${v.toFixed(1)}%`}
+                  width={40}
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: "hsl(var(--popover))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "0.5rem",
+                    fontSize: "12px",
+                  }}
+                  formatter={(v: number) => [`${v.toFixed(2)}%`, "APY"]}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="apy"
+                  stroke="hsl(var(--violet))"
+                  strokeWidth={2}
+                  dot={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div className="px-4 pb-4">
+            <EmptyState
+              icon={Percent}
+              title={isLoading ? "Loading…" : "No APY history yet"}
+              description="This chart fills in once the subgraph has 7+ days of share-price history."
+            />
+          </div>
+        )}
       </CardContent>
     </Card>
   );
