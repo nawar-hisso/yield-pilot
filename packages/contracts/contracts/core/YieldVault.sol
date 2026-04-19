@@ -67,4 +67,57 @@ contract YieldVault is ERC4626, Ownable, ReentrancyGuard, IYieldVault {
         uint256 parked = strategy.getBalance(asset(), address(this));
         return idle + parked;
     }
+
+    // ─── Auto-deploy hooks ─────────────────────────────────────────────────
+    //
+    // ERC4626's external entrypoints (`deposit`, `mint`, `withdraw`, `redeem`)
+    // all funnel through the internal `_deposit` / `_withdraw` hooks. We
+    // override those so:
+    //   * every successful deposit/mint immediately sends the fresh USDC into
+    //     the strategy — no "idle" window where capital sits earning nothing.
+    //   * every successful withdraw/redeem first pulls however much is needed
+    //     back out of the strategy, keeping the user-facing semantics
+    //     indistinguishable from a non-lending vault.
+    //
+    // Idempotent against the existing admin `deployToStrategy` /
+    // `recallFromStrategy` paths; those stay for ops-level rebalancing.
+
+    function _deposit(
+        address caller,
+        address receiver,
+        uint256 assets,
+        uint256 shares
+    ) internal override {
+        super._deposit(caller, receiver, assets, shares);
+        _autoSupplyToStrategy(assets);
+    }
+
+    function _withdraw(
+        address caller,
+        address receiver,
+        address owner,
+        uint256 assets,
+        uint256 shares
+    ) internal override {
+        _autoRecallFromStrategy(assets);
+        super._withdraw(caller, receiver, owner, assets, shares);
+    }
+
+    function _autoSupplyToStrategy(uint256 amount) private {
+        if (amount == 0) return;
+        IERC20 a = IERC20(asset());
+        a.forceApprove(address(strategy), amount);
+        strategy.supply(address(a), amount);
+        emit StrategyDeposit(amount);
+    }
+
+    function _autoRecallFromStrategy(uint256 needed) private {
+        if (needed == 0) return;
+        IERC20 a = IERC20(asset());
+        uint256 idle = a.balanceOf(address(this));
+        if (idle >= needed) return;
+        uint256 gap = needed - idle;
+        strategy.withdraw(address(a), gap);
+        emit StrategyWithdraw(gap);
+    }
 }

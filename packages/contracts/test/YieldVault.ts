@@ -10,6 +10,8 @@ describe("YieldVault (skeleton)", function () {
 
     const MockAave = await ethers.getContractFactory("MockAave");
     const aave = await MockAave.deploy(owner.address);
+    // Zero out APY so single-block time deltas don't drift the assertions.
+    await aave.setApyBps(0);
 
     const YieldVault = await ethers.getContractFactory("YieldVault");
     const vault = await YieldVault.deploy(
@@ -40,20 +42,40 @@ describe("YieldVault (skeleton)", function () {
     expect(await vault.convertToAssets(deposit * offset)).to.equal(deposit);
   });
 
-  it("reports totalAssets as idle + strategy balance", async function () {
-    const { vault, usdc, aave, owner, alice } = await deployFixture();
+  it("auto-supplies deposits into the strategy — no idle window", async function () {
+    const { vault, usdc, aave, alice } = await deployFixture();
     const deposit = 1_000n * 10n ** 6n;
 
     await usdc.connect(alice).approve(await vault.getAddress(), deposit);
     await vault.connect(alice).deposit(deposit, alice.address);
 
-    await vault.connect(owner).deployToStrategy(deposit);
-
+    // Vault's own USDC balance should be zero — everything went straight to
+    // MockAave via the _deposit override.
     expect(await usdc.balanceOf(await vault.getAddress())).to.equal(0n);
     expect(await aave.getBalance(await usdc.getAddress(), await vault.getAddress())).to.equal(
       deposit,
     );
-    // totalAssets should still reflect alice's position (principal at t=0).
     expect(await vault.totalAssets()).to.equal(deposit);
+  });
+
+  it("auto-recalls from the strategy on withdraw when idle is insufficient", async function () {
+    const { vault, usdc, aave, alice } = await deployFixture();
+    const deposit = 1_000n * 10n ** 6n;
+
+    await usdc.connect(alice).approve(await vault.getAddress(), deposit);
+    await vault.connect(alice).deposit(deposit, alice.address);
+
+    // All funds parked in the strategy — no idle in the vault.
+    expect(await usdc.balanceOf(await vault.getAddress())).to.equal(0n);
+
+    // Withdraw half; vault should pull from MockAave + forward to alice.
+    const half = deposit / 2n;
+    await vault.connect(alice).withdraw(half, alice.address, alice.address);
+
+    // Alice got the USDC, strategy balance dropped by the withdrawn amount.
+    expect(await usdc.balanceOf(alice.address)).to.equal(9_000n * 10n ** 6n + half);
+    expect(await aave.getBalance(await usdc.getAddress(), await vault.getAddress())).to.equal(
+      deposit - half,
+    );
   });
 });
