@@ -8,7 +8,9 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { registerPasskey, savePasskey } from "../../lib/passkey";
 import { useWallet } from "../../hooks/useWallet";
-import type { Address } from "viem";
+import { publicClient } from "../../lib/viem";
+import { YieldPilotAccountAbi } from "@yield-pilot/contracts-abi";
+import type { Address, Hex } from "viem";
 
 interface ParsedLink {
   nonce: string;
@@ -69,16 +71,56 @@ export function JoinDeviceDialog({
     }
 
     setStatus("waiting");
+
+    const finalize = async () => {
+      // Pin the record to Browser A's account (NOT Browser B's counterfactual)
+      // and flip the wallet facade to the passkey path.
+      await savePasskey({ ...record, accountAddress: parsed.accountAddress });
+      await wallet.choosePasskey();
+      setStatus("paired");
+      toast.success("Linked to existing account");
+    };
+
+    // Chain poll fallback — the WS relay is fast-path, but Browser A's
+    // authorize() can take 30-60s and any network blip kills the WS. Polling
+    // the account's authorizedKeys directly until our credIdHash shows up
+    // lets us finalize even when the relay drops the pair:complete message.
+    let stopped = false;
+    const pollChain = async () => {
+      for (let i = 0; i < 90 && !stopped; i++) {
+        try {
+          const code = await publicClient.getBytecode({ address: parsed.accountAddress });
+          if (code && code !== "0x") {
+            const keys = (await publicClient.readContract({
+              address: parsed.accountAddress,
+              abi: YieldPilotAccountAbi,
+              functionName: "authorizedKeys",
+            })) as readonly Hex[];
+            if (keys.some((k) => k.toLowerCase() === record.credIdHash.toLowerCase())) {
+              stopped = true;
+              try { wsRef.current?.close(); } catch {}
+              await finalize();
+              return;
+            }
+          }
+        } catch {
+          // ignore transient RPC failures, keep polling
+        }
+        await new Promise((r) => setTimeout(r, 2_000));
+      }
+    };
+    void pollChain();
+
     const ws = new WebSocket(`${apiOrigin()}/ws/pair`);
     wsRef.current = ws;
     ws.onopen = () => {
       ws.send(JSON.stringify({ type: "pair:join", nonce: parsed.nonce, role: "guest" }));
     };
     ws.onmessage = async (e) => {
+      if (stopped) return;
       try {
         const m = JSON.parse(e.data);
         if (m.type === "pair:ready" || m.type === "pair:joined") {
-          // Send proposal.
           ws.send(JSON.stringify({
             type: "pair:propose",
             credIdHash: record.credIdHash,
@@ -88,25 +130,18 @@ export function JoinDeviceDialog({
             nickname: record.nickname,
           }));
         } else if (m.type === "pair:complete") {
-          // Browser A confirmed on-chain. Cache the record locally, pinning
-          // it to Browser A's smart-account address (NOT Browser B's counterfactual).
-          // Then flip the wallet facade to the passkey path so the header shows
-          // the address pill immediately instead of the Connect button.
-          await savePasskey({ ...record, accountAddress: parsed.accountAddress });
-          await wallet.choosePasskey();
-          setStatus("paired");
-          toast.success("Linked to existing account");
+          stopped = true;
+          await finalize();
         } else if (m.type === "pair:closed") {
-          setStatus("error");
-          setError("Other device disconnected before completing");
+          // Don't error — the chain poll may still finalize successfully if
+          // Browser A's UserOp mines after the WS dies.
         }
       } catch {
         // ignore
       }
     };
     ws.onerror = () => {
-      setStatus("error");
-      setError("WebSocket error");
+      // Don't error out — chain poll is the backup.
     };
   }, [raw, nickname, wallet]);
 
