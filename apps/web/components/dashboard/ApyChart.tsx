@@ -48,7 +48,7 @@ export function ApyChart() {
     { refreshInterval: 60_000, revalidateOnFocus: false },
   );
 
-  const live = points !== undefined && points !== null && points.length > 7;
+  const live = points !== undefined && points !== null && points.length > 1;
   const chart = useMemo(() => (live ? derivedApy(points as DailyTvlPoint[]) : []), [live, points]);
   const last = chart[chart.length - 1];
 
@@ -60,7 +60,7 @@ export function ApyChart() {
             <CardTitle className="font-display text-base">APY</CardTitle>
             {live ? (
               <CardDescription className="text-xs">
-                7-day rolling · derived from subgraph inflow deltas
+                Derived from subgraph inflow deltas · needs multi-day activity to stabilise
               </CardDescription>
             ) : null}
           </div>
@@ -120,7 +120,7 @@ export function ApyChart() {
             <EmptyState
               icon={Percent}
               title={isLoading ? "Loading…" : "No APY history yet"}
-              description="This chart fills in once the subgraph has 7+ days of share-price history."
+              description="This chart fills in once the subgraph indexes at least one deposit or withdrawal."
             />
           </div>
         )}
