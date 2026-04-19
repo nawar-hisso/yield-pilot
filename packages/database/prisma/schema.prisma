@@ -27,11 +27,11 @@ model User {
   @@index([address])
 }
 
-/// In-app inbox for deposit/withdraw/delegate events.
+/// In-app inbox for deposit/withdraw events.
 model Notification {
   id        String    @id @default(cuid())
   userId    String
-  kind      String // "deposit" | "withdraw" | "operator_action" | "tx_failed"
+  kind      String // "deposit" | "withdraw" | "tx_failed"
   payload   Json
   readAt    DateTime?
   createdAt DateTime  @default(now())

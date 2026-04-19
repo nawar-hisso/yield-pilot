@@ -7,8 +7,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard,
   Vault,
-  Users,
-  ShieldCheck,
   Settings,
   Droplet,
   PanelLeftClose,
@@ -20,8 +18,6 @@ const NAV = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/vault", label: "Vault", icon: Vault },
   { href: "/faucet", label: "Faucet", icon: Droplet },
-  { href: "/delegate", label: "Delegate", icon: Users },
-  { href: "/multisig", label: "Multi-sig", icon: ShieldCheck },
   { href: "/settings", label: "Settings", icon: Settings },
 ] as const;
 

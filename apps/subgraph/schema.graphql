@@ -27,15 +27,6 @@ type UserPosition @entity(immutable: false) {
   lastActivity: BigInt!
 }
 
-  id: Bytes!
-  operator: Bytes!
-  safe: Bytes!
-  target: Bytes!
-  action: String!
-  timestamp: BigInt!
-  transactionHash: Bytes!
-}
-
 type VaultStats @entity(immutable: false) {
   "singleton id = 0x00"
   id: Bytes!

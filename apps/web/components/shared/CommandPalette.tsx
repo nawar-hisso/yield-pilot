@@ -6,8 +6,7 @@ import { Command } from "cmdk";
 import {
   LayoutDashboard,
   Vault,
-  Users,
-  ShieldCheck,
+  Droplet,
   Settings,
   Plug,
   LogOut,
@@ -121,7 +120,7 @@ function CommandPalette() {
           <Group heading="Navigate">
             <Item icon={LayoutDashboard} onSelect={() => go("/")}>Dashboard</Item>
             <Item icon={Vault} onSelect={() => go("/vault")}>Vault · deposit / withdraw</Item>
-            <Item icon={ShieldCheck} onSelect={() => go("/multisig")}>Multi-sig · pending txs</Item>
+            <Item icon={Droplet} onSelect={() => go("/faucet")}>Faucet · claim mUSDC</Item>
             <Item icon={Settings} onSelect={() => go("/settings")}>Settings</Item>
           </Group>
 

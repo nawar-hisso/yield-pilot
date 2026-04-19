@@ -2,15 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Vault, Droplet, Users, ShieldCheck, Settings } from "lucide-react";
+import { LayoutDashboard, Vault, Droplet, Settings } from "lucide-react";
 import { cn } from "../../lib/utils";
 
 const NAV = [
   { href: "/", label: "Dash", icon: LayoutDashboard },
   { href: "/vault", label: "Vault", icon: Vault },
   { href: "/faucet", label: "Faucet", icon: Droplet },
-  { href: "/delegate", label: "Delegate", icon: Users },
-  { href: "/multisig", label: "Multi-sig", icon: ShieldCheck },
   { href: "/settings", label: "Settings", icon: Settings },
 ] as const;
 
@@ -18,7 +16,7 @@ export function MobileNav() {
   const pathname = usePathname();
   return (
     <nav className="lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur">
-      <ul className="grid grid-cols-6">
+      <ul className="grid grid-cols-4">
         {NAV.map(({ href, label, icon: Icon }) => {
           const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
           return (

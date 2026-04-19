@@ -13,7 +13,7 @@
  *     "network": "sepolia",
  *     "startBlock": 1234567,
  *     "contracts": {
- *       "YieldVault":      "0x...",
+ *       "YieldVault": "0x...",
  *       ...
  *     }
  *   }
@@ -56,17 +56,17 @@ function main(): void {
   const vault = record.contracts["YieldVault"] ?? record.contracts["Vault"];
   const startBlock = record.startBlock ?? 0;
 
-  if (!vault || !safeModule) {
+  if (!vault) {
+    console.error(`deployment record missing YieldVault`, record.contracts);
     process.exit(1);
   }
 
   let manifest = readFileSync(manifestPath, "utf8");
 
-  // Replace both data-source address + network + startBlock. We run the
-  // substitutions on a per-data-source basis by matching the name line.
   manifest = patchDataSource(manifest, "YieldVault", vault, subgraphNetwork, startBlock);
 
   writeFileSync(manifestPath, manifest, "utf8");
+  console.log(`[patch-manifest] ${network} → YieldVault=${vault}, startBlock=${startBlock}`);
 }
 
 function patchDataSource(

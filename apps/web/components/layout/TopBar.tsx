@@ -14,8 +14,7 @@ const TITLES: Record<string, { title: string; sub: string }> = {
   "/": { title: "Dashboard", sub: "Portfolio value · P&L · live activity" },
   "/vault": { title: "Vault", sub: "Deposit · withdraw · sponsor gas" },
   "/faucet": { title: "Faucet", sub: "Claim mUSDC · mock controls" },
-  "/multisig": { title: "Multi-sig", sub: "Pending signatures · execute threshold" },
-  "/settings": { title: "Settings", sub: "Notifications · network · account" },
+  "/settings": { title: "Settings", sub: "Network · account · paired devices" },
 };
 
 export function TopBar() {

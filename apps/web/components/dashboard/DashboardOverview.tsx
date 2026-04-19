@@ -185,7 +185,7 @@ export function DashboardOverview() {
 
   const heroHeadline = wallet.isConnected
     ? ["Your", "position"]
-    : ["Deposit.", "Delegate.", "Earn."];
+    : ["Deposit.", "Earn."];
 
   return (
     <section className="space-y-6">
@@ -231,6 +231,7 @@ export function DashboardOverview() {
           <p className="text-sm text-muted-foreground max-w-lg">
             {wallet.isConnected
               ? "Your position updates in real-time from on-chain events. Use the vault to top up or withdraw."
+              : "A DeFi yield dashboard. Deposit mUSDC into an ERC-4626 vault and pay zero gas via the passkey-backed Paymaster."}
           </p>
           {!wallet.isConnected ? (
             <div className="pt-3 flex gap-3">

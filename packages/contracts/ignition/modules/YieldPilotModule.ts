@@ -35,5 +35,5 @@ export default buildModule("YieldPilotModule", (m) => {
   // --- Paymaster (sponsors account.execute calls) ---
   const paymaster = m.contract("Paymaster", [ENTRY_POINT_V07, initialVerifier, deployer]);
 
-
+  return { usdc, aave, vault, accountImpl, accountFactory, paymaster };
 });

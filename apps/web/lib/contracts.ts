@@ -7,7 +7,6 @@ export interface ContractAddresses {
   paymaster: Address | null;
   accountFactory: Address | null;
   accountImpl: Address | null;
-  safeModule: Address | null;
 }
 
 const EMPTY: ContractAddresses = {
@@ -17,7 +16,6 @@ const EMPTY: ContractAddresses = {
   paymaster: null,
   accountFactory: null,
   accountImpl: null,
-  safeModule: null,
 };
 
 function parseAddr(v: string | undefined): Address | null {
@@ -58,7 +56,6 @@ export function contractsFor(chainId: number): ContractAddresses {
       paymaster: parseAddr(process.env.NEXT_PUBLIC_PAYMASTER_CONTRACT_ADDRESS_BASE_SEPOLIA),
       accountFactory: parseAddr(process.env.NEXT_PUBLIC_ACCOUNT_FACTORY_ADDRESS_BASE_SEPOLIA),
       accountImpl: parseAddr(process.env.NEXT_PUBLIC_ACCOUNT_IMPL_ADDRESS_BASE_SEPOLIA),
-      safeModule: null,
     };
   }
   return EMPTY;

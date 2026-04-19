@@ -19,7 +19,7 @@ const geistMono = GeistMono;
 
 export const metadata: Metadata = {
   title: "YieldPilot — DeFi Yield Management",
-  description: "Deposit, delegate, and track yield strategies from one dashboard.",
+  description: "Deposit and track yield strategies from one dashboard.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
