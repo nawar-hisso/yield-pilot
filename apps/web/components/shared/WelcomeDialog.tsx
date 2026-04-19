@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Sparkles, Vault, Users, KeyRound, Wallet } from "lucide-react";
+import { Sparkles, Vault, KeyRound, Wallet } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -56,7 +56,7 @@ export function WelcomeDialog() {
             Welcome to <span className="text-grad">YieldPilot</span>
           </DialogTitle>
           <DialogDescription>
-            A testnet yield dashboard. Three things to know before you connect.
+            A testnet yield dashboard. Two things to know before you connect.
           </DialogDescription>
         </DialogHeader>
 
@@ -65,9 +65,6 @@ export function WelcomeDialog() {
             icon={<Vault className="h-4 w-4 text-accent" strokeWidth={1.75} />}
             title="Deposit mUSDC into the vault"
             body="Shares track your slice of a mock Aave strategy. Withdraw any time."
-          />
-          <Row
-            icon={<Users className="h-4 w-4 text-brand-violet" strokeWidth={1.75} />}
           />
           <Row
             icon={<KeyRound className="h-4 w-4 text-brand-fuchsia" strokeWidth={1.75} />}

@@ -416,6 +416,7 @@ export function DashboardOverview() {
               title={wallet.isConnected ? "No activity yet" : "Connect to stream events"}
               description={
                 wallet.isConnected
+                  ? "Deposits and withdrawals appear here as they happen on-chain."
                   : "Deposits and withdrawals appear here as soon as the subgraph indexes them."
               }
               action={

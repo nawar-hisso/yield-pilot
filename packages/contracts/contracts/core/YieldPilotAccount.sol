@@ -22,6 +22,7 @@ import {WebAuthn} from "../libraries/WebAuthn.sol";
 ///      `credId` routes to a stored key; `(authenticatorData, clientDataJSON, r, s)` are verified against that key's P-256 pubkey via the RIP-7212 precompile.
 contract YieldPilotAccount is BaseAccount, Initializable, IERC165, IERC721Receiver, IERC1155Receiver {
     /// @notice Soft upper bound on batch size — keeps `executeBatch` from
+    ///         running out of gas on inputs a caller couldn't physically fund.
     uint256 public constant MAX_BATCH = 32;
 
     IEntryPoint private immutable _entryPoint;

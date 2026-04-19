@@ -16,6 +16,7 @@ import path from "node:path";
  *    produces AA34 (paymaster signature) errors for every UserOp.
  *
  * Reads all prior addresses + the signer from env. Writes the new Paymaster
+ * address to stdout — then copy it into:
  *   - apps/api/.env.local          (PAYMASTER_CONTRACT_ADDRESS_SEPOLIA)
  *   - apps/web/.env.local          (NEXT_PUBLIC_PAYMASTER_CONTRACT_ADDRESS_SEPOLIA)
  *   - .env.local (root)            (PAYMASTER_CONTRACT_ADDRESS_SEPOLIA)
