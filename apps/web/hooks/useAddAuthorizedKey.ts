@@ -2,22 +2,24 @@
 
 import { useCallback, useState } from "react";
 import { type Address, type Hex } from "viem";
-import { addAuthorizedKeyCalldata, executeCalldata, stringToBytes32 } from "../lib/account";
-import { signUserOpHash } from "../lib/passkey";
+import {
+  addAuthorizedKeyCalldata,
+  executeCalldata,
+  stringToBytes32,
+} from "../lib/account";
+import { contractsFor } from "../lib/contracts";
+import { buildAndSendUserOp, waitForUserOpReceipt } from "../lib/userop";
 import { useWallet } from "./useWallet";
 import { usePasskeyAccount } from "../src/providers/PasskeyAccountProvider";
 
 /**
- * Sign + submit an `account.execute(address(this), 0, addAuthorizedKey(...))`
- * UserOp with the current primary passkey. On localhost (chainId 31337) the
- * Pimlico bundler doesn't serve the network, so the hook short-circuits with
- * a clear error — the pairing UI still completes on the Browser-A side (the
- * key exchange over WS) but the on-chain step has to happen on Sepolia.
+ * Sign + submit `account.execute(address(this), 0, addAuthorizedKey(...))`
+ * with the current primary passkey. Gas sponsored by the Paymaster. Returns
+ * the underlying transaction hash once the bundler confirms the UserOp.
  *
- * TODO(sepolia): wire Pimlico RPC (eth_estimateUserOperationGas,
- *   eth_sendUserOperation, eth_getUserOperationReceipt) + /api/paymaster/sponsor.
- *   Calldata + signature envelope are already built here; only the bundler
- *   submission layer is missing.
+ * On localhost (chainId 31337) Pimlico doesn't serve the network, so the hook
+ * short-circuits with a clear error — the pairing UI still completes its
+ * off-chain WS handshake but the on-chain step has to happen on Sepolia.
  */
 export interface AddKeyInput {
   credIdHash: Hex;
@@ -47,6 +49,10 @@ export function useAddAuthorizedKey() {
         throw new Error("Active passkey account required to authorize a new key");
       }
 
+      const { paymaster, accountFactory } = contractsFor(chainId);
+      if (!paymaster) throw new Error("Paymaster address not configured");
+      if (!accountFactory) throw new Error("Factory address not configured");
+
       const nicknameBytes = stringToBytes32(input.nickname);
       const inner = addAuthorizedKeyCalldata(
         input.credIdHash,
@@ -54,28 +60,37 @@ export function useAddAuthorizedKey() {
         input.pubKeyY,
         nicknameBytes,
       );
-      const outer = executeCalldata(passkey.address as Address, 0n, inner);
+      const callData = executeCalldata(passkey.address as Address, 0n, inner);
 
-      // userOpHash derivation is EntryPoint v0.7 spec:
-      //   keccak256(abi.encode(packedUserOpHash, entrypoint, chainId))
-      // We rely on the backend (/api/paymaster/sponsor) to echo the hash so
-      // the frontend and signer stay in lock-step.  Full implementation
-      // lands with the Sepolia deploy.
       setIsSigning(true);
       try {
-        const placeholderUserOpHash =
-          ("0x" + "00".repeat(32)) as Hex;
-        const signed = await signUserOpHash(
-          passkey.passkey.credentialId,
-          placeholderUserOpHash,
-        );
-        void outer;
-        void signed;
+        const userOpHash = await buildAndSendUserOp({
+          sender: passkey.address as Address,
+          callData,
+          chainId,
+          paymaster: paymaster as Address,
+          credentialId: passkey.passkey.credentialId,
+          initCodeArgs: {
+            factory: accountFactory as Address,
+            credIdHash: passkey.passkey.credIdHash as Hex,
+            pubKeyX: passkey.passkey.pubKeyX as Hex,
+            pubKeyY: passkey.passkey.pubKeyY as Hex,
+            nickname: stringToBytes32(passkey.passkey.nickname),
+            salt: 0n,
+          },
+        });
+
         setIsSigning(false);
         setIsBroadcasting(true);
-        throw new Error(
-          "Sepolia bundler path not yet wired — sign() succeeded, submission pending.",
-        );
+        setTxHash(userOpHash);
+
+        const receipt = await waitForUserOpReceipt(userOpHash, chainId);
+        setIsBroadcasting(false);
+        setTxHash(receipt.txHash);
+        if (!receipt.success) {
+          throw new Error("UserOp reverted on-chain");
+        }
+        return receipt.txHash;
       } catch (err) {
         setIsSigning(false);
         setIsBroadcasting(false);
