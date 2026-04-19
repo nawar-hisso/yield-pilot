@@ -17,9 +17,11 @@ import { USDC_DECIMALS } from "../../lib/contracts";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import {
   computeApyFromSharePrice,
+  fetchDailyTvl,
   fetchRecentActivity,
   fetchSharePriceSeries,
   fetchUserFlows,
+  type DailyTvlPoint,
   type SharePricePoint,
   type UserFlowSummary,
   type VaultActivityEvent,
@@ -56,10 +58,32 @@ export function DashboardOverview() {
     () => fetchSharePriceSeries(1000),
     { refreshInterval: 60_000, revalidateOnFocus: false },
   );
-  const apy = useMemo(
-    () => (sharePriceSeries ? computeApyFromSharePrice(sharePriceSeries) : null),
-    [sharePriceSeries],
+  const { data: dailyTvl } = useSWR<DailyTvlPoint[] | null>(
+    "tvl-daily-30",
+    () => fetchDailyTvl(30),
+    { refreshInterval: 60_000, revalidateOnFocus: false },
   );
+  /** Prefer share-price APY (true realised yield). Fall back to a TVL-inflow
+   *  proxy when the subgraph hasn't indexed SharePriceSnapshot yet — better
+   *  than showing "—" during the transition window. `source` drives the
+   *  hint text so users know which path they're seeing. */
+  const { value: apy, source: apySource } = useMemo(() => {
+    const sp = sharePriceSeries ? computeApyFromSharePrice(sharePriceSeries) : null;
+    if (sp !== null) return { value: sp, source: "share-price" as const };
+    if (dailyTvl && dailyTvl.length >= 2) {
+      const first = dailyTvl[0]!;
+      const last = dailyTvl[dailyTvl.length - 1]!;
+      if (first.tvlUsdc > 0n && last.day > first.day) {
+        const growth = Number((last.tvlUsdc - first.tvlUsdc) * 10_000n / first.tvlUsdc) / 10_000;
+        const years = (last.day - first.day) / 31_557_600;
+        if (years > 0) {
+          const proxy = Math.max(0, Math.min(25, (growth / years) * 100));
+          return { value: Number(proxy.toFixed(2)), source: "tvl-inflow" as const };
+        }
+      }
+    }
+    return { value: null as number | null, source: "none" as const };
+  }, [sharePriceSeries, dailyTvl]);
   const heroRef = useRef<HTMLDivElement>(null);
 
   // P&L = current position value − cost basis (deposits − withdrawals).
@@ -241,7 +265,9 @@ export function DashboardOverview() {
           hint={
             pnl === null
               ? "No positions yet"
-              : `vs. $${Number(formatUnits(flows!.costBasis, USDC_DECIMALS)).toLocaleString(undefined, { maximumFractionDigits: 2 })} cost basis`
+              : pnl.absUsd === 0
+                ? "Share price flat — no yield accrued yet"
+                : `vs. $${Number(formatUnits(flows!.costBasis, USDC_DECIMALS)).toLocaleString(undefined, { maximumFractionDigits: 2 })} cost basis`
           }
           icon={TrendingUp}
           loading={isLoading}
@@ -269,7 +295,13 @@ export function DashboardOverview() {
               />
             )
           }
-          hint={apy === null ? "Needs 1+ hour of snapshots" : "Realised share-price growth"}
+          hint={
+            apy === null
+              ? "Needs 1+ hour of snapshots"
+              : apySource === "share-price"
+                ? "Realised share-price growth"
+                : "Inflow proxy · redeploy subgraph for realised APY"
+          }
           icon={Percent}
           loading={isLoading}
           accent="gold"
