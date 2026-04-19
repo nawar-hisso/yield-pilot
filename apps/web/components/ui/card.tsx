@@ -34,7 +34,11 @@ const CardTitle = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HT
     <h3
       ref={ref}
       className={cn(
-        "text-lg font-semibold leading-none tracking-tight text-[color:var(--color-text-1)]",
+        // Pure white + accent underline glow so titles stay legible on the
+        // dark-plum card surface at any display gamma. No text-*-1 var
+        // because those alpha-blend against translucent cards and can
+        // appear muted on some displays.
+        "text-lg font-semibold leading-none tracking-tight text-white [text-shadow:0_0_12px_rgb(var(--accent-rgb)/0.25)]",
         className,
       )}
       {...props}

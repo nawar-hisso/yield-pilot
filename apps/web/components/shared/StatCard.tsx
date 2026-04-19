@@ -74,7 +74,7 @@ export function StatCard({
       />
       <div className="flex items-start justify-between">
         <div className="min-w-0">
-          <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-[color:var(--color-text-3)]">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[color:var(--color-accent)]">
             {label}
           </div>
           <div className="mt-2 text-3xl font-bold leading-none tracking-tight">
