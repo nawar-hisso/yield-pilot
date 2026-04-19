@@ -15,11 +15,9 @@ export default function SettingsPage() {
           </p>
         </header>
 
-        <div className="grid gap-4 lg:grid-cols-2">
-          <AccountCard />
-          <NetworkCard />
-        </div>
+        <AccountCard />
         <PairedDevicesCard />
+        <NetworkCard />
       </section>
     </ClientOnly>
   );
