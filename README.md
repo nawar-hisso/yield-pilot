@@ -1,8 +1,9 @@
 # YieldPilot
 
+DeFi yield-management dashboard — ERC-4626 vaults, ERC-4337 gasless deposits,
+real-time P&L via subgraph.
 
-Scaffolded from a
-user-provided PRD. See `docs/PRD.md` for the canonical spec.
+See `docs/PRD.md` for the canonical spec.
 
 ## Architecture
 
@@ -25,6 +26,7 @@ pnpm compile                    # build contracts
 pnpm dev                        # turbo runs web + api in parallel
 ```
 
+See `docs/` for design docs.
 
 ## Scripts
 
@@ -37,6 +39,3 @@ pnpm dev                        # turbo runs web + api in parallel
 | `pnpm typecheck` | TypeScript check all packages |
 | `pnpm compile` | Hardhat compile (packages/contracts) |
 | `pnpm -F @yield-pilot/<name> <script>` | Target one workspace |
-
-## Next step
-
