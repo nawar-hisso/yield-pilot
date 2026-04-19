@@ -13,9 +13,9 @@ dataSources:
     name: YieldVault
     network: sepolia
     source:
-      address: "0x4662Bd4149CB412E1CdC08E2e3177974c16850AF"
+      address: "0x62B63E6E3e8b265D7A4A807B50db7f9069E9Dd2B"
       abi: YieldVault
-      startBlock: 10690178
+      startBlock: 10693000
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.9
@@ -40,7 +40,7 @@ dataSources:
     network: sepolia
     source:
       address: "0x50614633a79BC2269AeCD30c450E86CA2d6b776f"
-      startBlock: 10690178
+      startBlock: 10693000
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.9

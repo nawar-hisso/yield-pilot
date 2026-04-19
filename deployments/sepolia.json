@@ -6,16 +6,16 @@
   "addresses": {
     "YieldPilotModule#MockAave": "0xaBeC4198F517E25aa7375702eb56aF13e5478e7f",
     "YieldPilotModule#MockUSDC": "0x2a046e7e9f0a0ce0a466F357adE6ccf171977BDc",
-    "YieldPilotModule#Paymaster": "0xFd865997C431a3886cD23B9CC5BF1d13840b4Bc9",
+    "YieldPilotModule#Paymaster": "0xa77447088b961861626c79D00d62e2024E7190B2",
     "YieldPilotModule#YieldPilotAccount": "0x4B99773e756bCA1DF5ff9696014db0E25a90916B",
     "YieldPilotModule#YieldPilotAccountFactory": "0xe38f4049F7C18DE4fC9C48eb102134cC42027AC9",
-    "YieldPilotModule#YieldVault": "0x4662Bd4149CB412E1CdC08E2e3177974c16850AF"
+    "YieldPilotModule#YieldVault": "0x62B63E6E3e8b265D7A4A807B50db7f9069E9Dd2B"
   },
-  "updatedAt": "2026-04-19T13:47:48.952Z",
-  "startBlock": 10690178,
+  "updatedAt": "2026-04-20T00:00:00.000Z",
+  "startBlock": 10693000,
   "contracts": {
-    "YieldVault": "0x4662Bd4149CB412E1CdC08E2e3177974c16850AF",
-    "Paymaster": "0xFd865997C431a3886cD23B9CC5BF1d13840b4Bc9",
+    "YieldVault": "0x62B63E6E3e8b265D7A4A807B50db7f9069E9Dd2B",
+    "Paymaster": "0xa77447088b961861626c79D00d62e2024E7190B2",
     "YieldPilotAccountFactory": "0xe38f4049F7C18DE4fC9C48eb102134cC42027AC9"
   }
 }
