@@ -29,7 +29,7 @@ function num(v: bigint | undefined): number {
 export function DashboardOverview() {
   const wallet = useWallet();
   const { data: position, isLoading } = useVaultPosition();
-  const { last } = useRealtime();
+  const { last, connected } = useRealtime();
   const heroRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -192,13 +192,21 @@ export function DashboardOverview() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="font-display">Live activity</CardTitle>
-          <span className="text-xs text-muted-foreground">WebSocket · real-time</span>
+          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span
+              aria-hidden
+              className={`inline-block h-1.5 w-1.5 rounded-full ${connected ? "bg-success animate-pulse" : "bg-muted-foreground/40"}`}
+            />
+            WebSocket · {connected ? "connected" : "offline"}
+          </span>
         </CardHeader>
         <CardContent>
           {last ? (
             <div className="rounded-md border border-border bg-card-muted px-4 py-3 text-sm">
-              <span className="text-accent font-medium">{last.type}</span> received at{" "}
-              {new Date().toLocaleTimeString()}
+              <span className="text-accent font-medium">
+                {last.type === "vault.event" ? last.payload.kind : "Safe action"}
+              </span>{" "}
+              received at {new Date().toLocaleTimeString()}
             </div>
           ) : (
             <EmptyState

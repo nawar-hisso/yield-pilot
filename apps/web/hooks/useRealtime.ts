@@ -4,10 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import type { RealtimePayload } from "@yield-pilot/shared";
 
 /**
- * Subscribes to the apps/api WebSocket channel. Emits the latest
+ * Subscribes to the apps/api WebSocket channel. Tracks the latest real
+ * `connected` + `lastPingAt`. The `ping` heartbeat (emitted every 30s by the
+ * server) is consumed but never surfaced as activity — it's just a
+ * keep-alive, not a user-visible event.
  */
 export function useRealtime() {
-  const [last, setLast] = useState<RealtimePayload | null>(null);
+  const [last, setLast] = useState<Exclude<RealtimePayload, { type: "ping" }> | null>(null);
+  const [connected, setConnected] = useState(false);
+  const [lastPingAt, setLastPingAt] = useState<number | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
@@ -17,9 +22,15 @@ export function useRealtime() {
     const ws = new WebSocket(url);
     wsRef.current = ws;
 
+    ws.onopen = () => setConnected(true);
+    ws.onclose = () => setConnected(false);
     ws.onmessage = (ev) => {
       try {
         const payload: RealtimePayload = JSON.parse(ev.data);
+        if (payload.type === "ping") {
+          setLastPingAt(payload.payload.ts);
+          return;
+        }
         setLast(payload);
       } catch (err) {
         console.warn("[useRealtime] bad payload", err);
@@ -33,5 +44,5 @@ export function useRealtime() {
     };
   }, []);
 
-  return { last };
+  return { last, connected, lastPingAt };
 }
