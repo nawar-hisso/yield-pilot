@@ -1,9 +1,19 @@
 import { ethers, network } from "hardhat";
+import * as dotenv from "dotenv";
+import fs from "node:fs";
+import path from "node:path";
 
 /**
  * Redeploy ONLY the Paymaster contract — the rest of the system (Vault,
  * Factory, Account impl) stays in place. Use when the Paymaster's on-chain
  * policy changes (e.g., adding executeBatch support).
+ *
+ * ⚠  apps/api is the runtime source of truth for the sponsorship signer.
+ *    This script LOADS apps/api/.env.local explicitly and cross-checks it
+ *    against whatever key Hardhat already loaded from root .env.local.
+ *    If the two disagree the script bails out — otherwise the new paymaster's
+ *    verifier would drift away from what apps/api actually signs with, which
+ *    produces AA34 (paymaster signature) errors for every UserOp.
  *
  * Reads all prior addresses + the signer from env. Writes the new Paymaster
  *   - apps/api/.env.local          (PAYMASTER_CONTRACT_ADDRESS_SEPOLIA)
@@ -15,6 +25,33 @@ import { ethers, network } from "hardhat";
  * UserOp carries empty initCode. Without this, the sender-allowlist would
  * treat the known account as unknown and reject it.
  */
+
+/**
+ * Resolve the sponsorship signer, preferring apps/api/.env.local (the
+ * runtime source of truth). Throws on any mismatch with an already-loaded
+ * root-level value.
+ */
+function resolveSigner(): { privateKey: string; address: string } {
+  const rootKey = process.env.PAYMASTER_SIGNER_PRIVATE_KEY;
+  const apiEnvPath = path.resolve(__dirname, "../../../apps/api/.env.local");
+  if (!fs.existsSync(apiEnvPath)) {
+    if (!rootKey) throw new Error("No PAYMASTER_SIGNER_PRIVATE_KEY in root .env.local and no apps/api/.env.local to fall back on");
+    const pk = rootKey;
+    return { privateKey: pk, address: new ethers.Wallet(pk).address };
+  }
+  const apiEnv = dotenv.parse(fs.readFileSync(apiEnvPath));
+  const apiKey = apiEnv.PAYMASTER_SIGNER_PRIVATE_KEY;
+  if (!apiKey) throw new Error(`apps/api/.env.local has no PAYMASTER_SIGNER_PRIVATE_KEY`);
+  if (rootKey && rootKey.toLowerCase() !== apiKey.toLowerCase()) {
+    throw new Error(
+      `PAYMASTER_SIGNER_PRIVATE_KEY divergence:\n` +
+      `  root .env.local    → ${new ethers.Wallet(rootKey).address}\n` +
+      `  apps/api/.env.local → ${new ethers.Wallet(apiKey).address}\n` +
+      `Pick one (apps/api is the runtime signer) and sync both files.`,
+    );
+  }
+  return { privateKey: apiKey, address: new ethers.Wallet(apiKey).address };
+}
 
 const ENTRYPOINT_V07 = "0x0000000071727De22E5E9d8BAf0edAc6f37da032";
 
@@ -38,13 +75,12 @@ async function main() {
   const factory = must("ACCOUNT_FACTORY_ADDRESS_SEPOLIA", process.env.ACCOUNT_FACTORY_ADDRESS_SEPOLIA);
   const usdc = must("USDC_ADDRESS_SEPOLIA", process.env.USDC_ADDRESS_SEPOLIA);
 
-  // Verifier defaults to the apps/api signer address derived from the private
-  // key. For safety we require either PAYMASTER_VERIFIER or PAYMASTER_SIGNER_PRIVATE_KEY.
+  // Verifier = the address of whatever key apps/api signs sponsorship
+  // requests with. resolveSigner() enforces that root and apps/api agree.
+  // Explicit PAYMASTER_VERIFIER override still wins for advanced setups.
   let verifier = process.env.PAYMASTER_VERIFIER;
   if (!verifier) {
-    const pk = process.env.PAYMASTER_SIGNER_PRIVATE_KEY;
-    if (!pk) throw new Error("Set PAYMASTER_VERIFIER or PAYMASTER_SIGNER_PRIVATE_KEY");
-    verifier = new ethers.Wallet(pk).address;
+    verifier = resolveSigner().address;
   }
 
   const preAllowedRaw = process.env.PRE_ALLOWED_SENDERS ?? "";

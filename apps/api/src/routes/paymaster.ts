@@ -1,6 +1,16 @@
 import { Router, type Router as ExpressRouter } from "express";
 import { z } from "zod";
-import { decodeAbiParameters, getAddress, parseAbiParameters, slice, type Hex, type Address } from "viem";
+import {
+  createPublicClient,
+  decodeAbiParameters,
+  getAddress,
+  http,
+  parseAbiParameters,
+  slice,
+  type Hex,
+  type Address,
+} from "viem";
+import { sepolia, baseSepolia } from "viem/chains";
 import { buildSponsorship, getPaymasterSignerAddress } from "../services/paymaster-signer.js";
 import {
   evaluatePolicy,
@@ -56,6 +66,50 @@ const sponsorBody = z.object({
 // (selector + target) = 72 hex chars + "0x".
 const MIN_EXECUTE_CALLDATA_HEX = 2 + 8 + 64;
 
+/** On-chain verifier cache, keyed by chainId:paymasterAddress. Validated once
+ *  per paymaster per backend start — if the key apps/api signs with doesn't
+ *  match what the paymaster has on-chain, every UserOp would fail with AA34.
+ *  We'd rather block early here with a clear error. */
+const verifierCache = new Map<string, Address>();
+
+function rpcFor(chainId: number): string | undefined {
+  if (chainId === 11155111) return process.env.RPC_URL_SEPOLIA ?? process.env.NEXT_PUBLIC_RPC_URL;
+  if (chainId === 84532) return process.env.RPC_URL_BASE_SEPOLIA;
+  return undefined;
+}
+
+async function getPaymasterVerifier(chainId: number, paymasterAddress: Address): Promise<Address | null> {
+  const key = `${chainId}:${paymasterAddress.toLowerCase()}`;
+  const cached = verifierCache.get(key);
+  if (cached) return cached;
+  const rpc = rpcFor(chainId);
+  if (!rpc) return null;
+  const client = createPublicClient({
+    chain: chainId === 84532 ? baseSepolia : sepolia,
+    transport: http(rpc),
+  });
+  try {
+    const verifier = (await client.readContract({
+      address: paymasterAddress,
+      abi: [
+        {
+          type: "function",
+          name: "verifier",
+          inputs: [],
+          outputs: [{ type: "address" }],
+          stateMutability: "view",
+        },
+      ],
+      functionName: "verifier",
+    })) as Address;
+    verifierCache.set(key, getAddress(verifier));
+    return getAddress(verifier);
+  } catch (err) {
+    logger.warn({ chainId, paymasterAddress, err }, "failed to read paymaster.verifier()");
+    return null;
+  }
+}
+
 /** Decode ALL call targets from a UserOp.callData. One entry for `execute`,
  *  N for `executeBatch`. Throws on malformed input. */
 function extractTargets(callData: Hex): { selector: Hex; targets: Address[] } {
@@ -108,6 +162,23 @@ paymasterRouter.post("/sponsor", async (req, res) => {
     paymasterValidationGasLimit,
     paymasterPostOpGasLimit,
   } = parsed.data;
+
+  // Verifier sanity check — if the key we'd sign with doesn't match the
+  // paymaster's on-chain verifier, we'd produce a valid ECDSA sig that the
+  // contract rejects. Catch it here with a clear 500 instead of shipping an
+  // AA34 error to the user.
+  const signerAddress = getPaymasterSignerAddress();
+  const onchainVerifier = await getPaymasterVerifier(chainId, paymasterAddress);
+  if (onchainVerifier && onchainVerifier.toLowerCase() !== signerAddress.toLowerCase()) {
+    logger.error(
+      { chainId, paymasterAddress, signer: signerAddress, onchainVerifier },
+      "verifier mismatch — sponsorship would fail on-chain (AA34)",
+    );
+    return res.status(500).json({
+      error: "verifier mismatch",
+      reason: `apps/api signs with ${signerAddress} but Paymaster.verifier() == ${onchainVerifier}. Run scripts/fix-verifier.ts or sync PAYMASTER_SIGNER_PRIVATE_KEY across .env.local files.`,
+    });
+  }
 
   // Extract the selector + all targets. `executeBatch` carries multiple, so
   // we hand evaluatePolicy() an array and let it allow-list each one.
