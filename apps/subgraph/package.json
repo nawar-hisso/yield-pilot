@@ -7,7 +7,7 @@
     "build": "graph build",
     "patch:sepolia": "tsx ./scripts/patch-manifest.ts sepolia",
     "patch:base-sepolia": "tsx ./scripts/patch-manifest.ts base-sepolia",
-    "deploy:sepolia": "pnpm patch:sepolia && graph deploy --studio yield-pilot-sepolia",
+    "deploy:sepolia": "pnpm patch:sepolia && graph deploy --studio yield-pilot",
     "deploy:base-sepolia": "pnpm patch:base-sepolia && graph deploy --studio yield-pilot-base-sepolia",
     "lint": "echo '(subgraph) no lint configured'",
     "typecheck": "echo '(subgraph) assemblyscript — no tsc'",
