@@ -67,6 +67,28 @@ function buildDummySignature(): Hex {
   });
 }
 
+/**
+ * Packed stub paymasterAndData for estimation. Layout (v0.7):
+ *   paymaster(20) | pmVerGas(16) | pmPostGas(16) | validUntil(6) | validAfter(6) | sig(65)
+ * Max uint48 validUntil so the window never expires mid-simulation; 65 zero
+ * signature bytes fail the ECDSA recover cleanly (sigFailed=true).
+ */
+function buildStubPaymasterAndData(paymaster: Address): Hex {
+  const pmVerGas = "0x" + (150_000n).toString(16).padStart(32, "0");
+  const pmPostGas = "0x" + (80_000n).toString(16).padStart(32, "0");
+  const validUntil = "ffffffffffff"; // 6 bytes, max uint48
+  const validAfter = "000000000000"; // 6 bytes
+  const sig = "00".repeat(65);
+  return (
+    paymaster.toLowerCase() +
+    pmVerGas.slice(2) +
+    pmPostGas.slice(2) +
+    validUntil +
+    validAfter +
+    sig
+  ) as Hex;
+}
+
 /** Size of the pre-verification gas buffer we add on top of the bundler estimate
  *  to cover the paymaster signing overhead + any mempool-time gas variance. */
 const PRE_VERIFICATION_GAS_BUFFER = 10_000n;
@@ -210,10 +232,15 @@ export async function buildAndSendUserOp(args: BuildAndSendArgs): Promise<Hex> {
   // 3. Gas price — Pimlico's helper returns fast/standard/slow tiers.
   const { maxFeePerGas, maxPriorityFeePerGas } = await fetchPimlicoGasPrice(chainId);
 
-  // 4. Estimate — dummy limits + dummy sig, real init/call, zero paymaster.
-  //    The bundler returns back the three gas budgets we plug into the real op.
+  // 4. Estimate — dummy limits + dummy sig, real init/call, **stub paymaster**.
+  //    Without a paymaster stub the bundler expects the account to prefund,
+  //    which it can't (no ETH) → AA21. A stub with our paymaster address +
+  //    max-validity window + zero sig signals "paymaster will cover"; our
+  //    paymaster returns sigFailed=true (SIG_VALIDATION_FAILED, not a revert),
+  //    which Pimlico treats as a benign estimation outcome.
   const dummyAccountGasLimits = packAccountGasLimits(1_000_000n, 1_000_000n);
   const dummyGasFees = packGasFees(maxPriorityFeePerGas, maxFeePerGas);
+  const stubPaymasterAndData = buildStubPaymasterAndData(paymaster);
   const estimate = await estimateUserOpGas(chainId, {
     sender,
     nonce,
@@ -222,7 +249,7 @@ export async function buildAndSendUserOp(args: BuildAndSendArgs): Promise<Hex> {
     accountGasLimits: dummyAccountGasLimits,
     preVerificationGas: 60_000n,
     gasFees: dummyGasFees,
-    paymasterAndData: "0x",
+    paymasterAndData: stubPaymasterAndData,
     signature: buildDummySignature(),
   });
 
