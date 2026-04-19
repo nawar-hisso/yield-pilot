@@ -58,11 +58,11 @@ export function ApyChart() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <CardTitle className="font-display text-base">APY</CardTitle>
-            <CardDescription className="text-xs">
-              {live
-                ? "7-day rolling · derived from subgraph inflow deltas"
-                : "Chart starts once the subgraph has 7+ days of history."}
-            </CardDescription>
+            {live ? (
+              <CardDescription className="text-xs">
+                7-day rolling · derived from subgraph inflow deltas
+              </CardDescription>
+            ) : null}
           </div>
           {live ? (
             <div className="text-right">

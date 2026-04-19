@@ -43,9 +43,9 @@ export function TvlChart() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <CardTitle className="font-display text-base">Vault TVL</CardTitle>
-            <CardDescription className="text-xs">
-              {live ? "Last 30 days · live from subgraph" : "Chart starts once the subgraph indexes deposits."}
-            </CardDescription>
+            {live ? (
+              <CardDescription className="text-xs">Last 30 days · live from subgraph</CardDescription>
+            ) : null}
           </div>
           {live ? (
             <div className="text-right">
