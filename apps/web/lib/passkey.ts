@@ -1,7 +1,7 @@
 "use client";
 
 import { startAuthentication, startRegistration } from "@simplewebauthn/browser";
-import { bytesToHex, hexToBytes, type Hex } from "viem";
+import { bytesToHex, hexToBytes, keccak256, type Hex } from "viem";
 
 // P-256 curve order n — used to detect / normalise "low-s" signatures.
 const P256_N =
@@ -19,14 +19,21 @@ const P256_N_HALF = P256_N / 2n;
  * Authentication ───────────────────────────────────────────────────────────
  * navigator.credentials.get() returns (authenticatorData, clientDataJSON, sig).
  * The signature is ASN.1-DER-encoded; our Solidity contract wants r and s as
- * raw 32-byte values. We decode the DER blob + ABI-encode the four fields
- * for `YieldPilotAccount._validateSignature`.
+ * raw 32-byte values. We decode the DER blob + ABI-encode five fields
+ * (credIdHash + authData + clientDataJSON + r + s) for the
+ * `YieldPilotAccount._validateSignature` decoder.
  */
 
 export interface PasskeyRecord {
-  credentialId: string; // base64url
+  /** base64url credentialId — what WebAuthn returns. */
+  credentialId: string;
+  /** keccak256 of the decoded credentialId bytes — routing key for the on-chain
+   *  `keys[credId]` mapping. Stored redundantly so we don't re-hash on every use. */
+  credIdHash: Hex;
   pubKeyX: Hex;
   pubKeyY: Hex;
+  /** Optional user-supplied label (e.g. "MacBook · Safari"). Empty string = unset. */
+  nickname: string;
   createdAt: number;
 }
 
@@ -49,12 +56,26 @@ function openDb(): Promise<IDBDatabase> {
 
 export async function loadPasskey(): Promise<PasskeyRecord | null> {
   const db = await openDb();
-  return new Promise((resolve, reject) => {
+  const raw: PasskeyRecord | null = await new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, "readonly");
     const req = tx.objectStore(STORE_NAME).get(RECORD_KEY);
     req.onerror = () => reject(req.error);
     req.onsuccess = () => resolve((req.result as PasskeyRecord | undefined) ?? null);
   });
+  if (!raw) return null;
+
+  // Migration: backfill credIdHash + nickname for records created before the
+  // multi-key contract migration. Existing users keep their passkey intact.
+  if (!raw.credIdHash || !("nickname" in raw)) {
+    const patched: PasskeyRecord = {
+      ...raw,
+      credIdHash: raw.credIdHash ?? computeCredIdHash(raw.credentialId),
+      nickname: raw.nickname ?? "",
+    };
+    await savePasskey(patched);
+    return patched;
+  }
+  return raw;
 }
 
 export async function savePasskey(record: PasskeyRecord): Promise<void> {
@@ -83,6 +104,12 @@ export interface RegisterOptions {
   rpId?: string;         // defaults to current hostname
   rpName?: string;       // defaults to "YieldPilot"
   userName?: string;     // defaults to "YieldPilot user"
+  /** Persist the record to IndexedDB on success. Default: true.
+   *  Set false to register a passkey without overwriting an existing primary record
+   *  — useful for the pairing flow where we're registering Browser B's passkey
+   *  but it should not become the primary until Browser A approves the on-chain op. */
+  persist?: boolean;
+  nickname?: string;
 }
 
 /** Generate a passkey + return the extracted public key. */
@@ -90,6 +117,7 @@ export async function registerPasskey(opts: RegisterOptions = {}): Promise<Passk
   const rpId = opts.rpId ?? (typeof window !== "undefined" ? window.location.hostname : "localhost");
   const rpName = opts.rpName ?? "YieldPilot";
   const userName = opts.userName ?? "YieldPilot user";
+  const persist = opts.persist ?? true;
 
   const challenge = crypto.getRandomValues(new Uint8Array(32));
   const userIdBytes = crypto.getRandomValues(new Uint8Array(16));
@@ -117,17 +145,27 @@ export async function registerPasskey(opts: RegisterOptions = {}): Promise<Passk
 
   const record: PasskeyRecord = {
     credentialId: attestation.id, // already base64url
+    credIdHash: computeCredIdHash(attestation.id),
     pubKeyX: bytesToHex(x),
     pubKeyY: bytesToHex(y),
+    nickname: opts.nickname ?? "",
     createdAt: Date.now(),
   };
-  await savePasskey(record);
+  if (persist) await savePasskey(record);
   return record;
+}
+
+/** keccak256 of the raw (base64url-decoded) credentialId bytes. */
+export function computeCredIdHash(credentialIdBase64Url: string): Hex {
+  const bytes = base64urlDecode(credentialIdBase64Url);
+  return keccak256(bytes);
 }
 
 // ────────────────────────── Authentication / signing ──────────────────────
 
 export interface SignedUserOp {
+  /** Routing id — the on-chain `keys[credId]` lookup. */
+  credIdHash: Hex;
   authenticatorData: Uint8Array;
   clientDataJSON: Uint8Array;
   r: Hex;
@@ -135,7 +173,7 @@ export interface SignedUserOp {
 }
 
 /**
- * Ask the user's authenticator to sign `userOpHash`. Returns all four pieces
+ * Ask the user's authenticator to sign `userOpHash`. Returns all five pieces
  * we need for the on-chain `_validateSignature` decoder.
  */
 export async function signUserOpHash(
@@ -162,6 +200,7 @@ export async function signUserOpHash(
   const { r, s } = derToRs(sigDer);
 
   return {
+    credIdHash: computeCredIdHash(credentialId),
     authenticatorData: authData,
     clientDataJSON,
     r: ("0x" + padHex(r, 32)) as Hex,

@@ -8,6 +8,10 @@ import { type Address, type Hex, encodeAbiParameters, encodeFunctionData, getCon
  *   finalSalt = keccak256(abi.encode(pubKeyX, pubKeyY, salt))
  *   proxyBytecode = ERC-1167 minimal proxy pointing at accountImplementation
  *   address = keccak256(0xff ++ factory ++ finalSalt ++ keccak256(proxyBytecode))[12:]
+ *
+ * `credId` and `nickname` are passed to `initialize` as metadata but do NOT
+ * influence the CREATE2 address — the account stays at the same address even
+ * after `addAuthorizedKey` registers additional passkeys.
  */
 
 /** ERC-1167 minimal proxy template. `<impl>` is a 20-byte placeholder. */
@@ -45,16 +49,24 @@ export function counterfactualAddress(args: {
   });
 }
 
-/** ABI-encoded `factory.createAccount(pubKeyX, pubKeyY, salt)` calldata. */
-export function createAccountCalldata(pubKeyX: Hex, pubKeyY: Hex, salt: bigint): Hex {
+/** ABI-encoded `factory.createAccount(credId, pubKeyX, pubKeyY, nickname, salt)` calldata. */
+export function createAccountCalldata(
+  credIdHash: Hex,
+  pubKeyX: Hex,
+  pubKeyY: Hex,
+  nickname: Hex,
+  salt: bigint,
+): Hex {
   return encodeFunctionData({
     abi: [
       {
         type: "function",
         name: "createAccount",
         inputs: [
+          { name: "credId", type: "bytes32" },
           { name: "pubKeyX", type: "bytes32" },
           { name: "pubKeyY", type: "bytes32" },
+          { name: "nickname", type: "bytes32" },
           { name: "salt", type: "uint256" },
         ],
         outputs: [{ type: "address" }],
@@ -62,19 +74,31 @@ export function createAccountCalldata(pubKeyX: Hex, pubKeyY: Hex, salt: bigint):
       },
     ],
     functionName: "createAccount",
-    args: [pubKeyX as `0x${string}`, pubKeyY as `0x${string}`, salt],
+    args: [
+      credIdHash as `0x${string}`,
+      pubKeyX as `0x${string}`,
+      pubKeyY as `0x${string}`,
+      nickname as `0x${string}`,
+      salt,
+    ],
   });
 }
 
 /** Full `initCode` blob (factory address ++ createAccount calldata). */
 export function buildInitCode(args: {
   factory: Address;
+  credIdHash: Hex;
   pubKeyX: Hex;
   pubKeyY: Hex;
+  nickname?: Hex;
   salt?: bigint;
 }): Hex {
   const salt = args.salt ?? 0n;
-  return concat([args.factory, createAccountCalldata(args.pubKeyX, args.pubKeyY, salt)]);
+  const nickname = args.nickname ?? (("0x" + "00".repeat(32)) as Hex);
+  return concat([
+    args.factory,
+    createAccountCalldata(args.credIdHash, args.pubKeyX, args.pubKeyY, nickname, salt),
+  ]);
 }
 
 /** `account.execute(target, value, data)` calldata. */
@@ -98,8 +122,61 @@ export function executeCalldata(target: Address, value: bigint, data: Hex): Hex 
   });
 }
 
-/** Encode the passkey signature blob our YieldPilotAccount decodes. */
+/** `account.addAuthorizedKey(credId, x, y, nickname)` calldata. */
+export function addAuthorizedKeyCalldata(
+  credIdHash: Hex,
+  pubKeyX: Hex,
+  pubKeyY: Hex,
+  nickname: Hex,
+): Hex {
+  return encodeFunctionData({
+    abi: [
+      {
+        type: "function",
+        name: "addAuthorizedKey",
+        inputs: [
+          { name: "credId", type: "bytes32" },
+          { name: "x", type: "bytes32" },
+          { name: "y", type: "bytes32" },
+          { name: "nickname", type: "bytes32" },
+        ],
+        outputs: [],
+        stateMutability: "nonpayable",
+      },
+    ],
+    functionName: "addAuthorizedKey",
+    args: [
+      credIdHash as `0x${string}`,
+      pubKeyX as `0x${string}`,
+      pubKeyY as `0x${string}`,
+      nickname as `0x${string}`,
+    ],
+  });
+}
+
+/** `account.revokeKey(credId)` calldata. */
+export function revokeKeyCalldata(credIdHash: Hex): Hex {
+  return encodeFunctionData({
+    abi: [
+      {
+        type: "function",
+        name: "revokeKey",
+        inputs: [{ name: "credId", type: "bytes32" }],
+        outputs: [],
+        stateMutability: "nonpayable",
+      },
+    ],
+    functionName: "revokeKey",
+    args: [credIdHash as `0x${string}`],
+  });
+}
+
+/**
+ * Encode the passkey signature envelope the YieldPilotAccount decodes.
+ * Five fields — credId routes to the stored key, then the WebAuthn assertion.
+ */
 export function encodePasskeySignature(args: {
+  credIdHash: Hex;
   authenticatorData: Uint8Array;
   clientDataJSON: Uint8Array;
   r: Hex;
@@ -109,12 +186,19 @@ export function encodePasskeySignature(args: {
   const clientData = ("0x" + bytesToHex(args.clientDataJSON)) as Hex;
   return encodeAbiParameters(
     [
+      { type: "bytes32" },
       { type: "bytes" },
       { type: "bytes" },
       { type: "bytes32" },
       { type: "bytes32" },
     ],
-    [authData, clientData, args.r as `0x${string}`, args.s as `0x${string}`],
+    [
+      args.credIdHash as `0x${string}`,
+      authData,
+      clientData,
+      args.r as `0x${string}`,
+      args.s as `0x${string}`,
+    ],
   );
 }
 
@@ -131,4 +215,23 @@ export function packAccountGasLimits(verificationGasLimit: bigint, callGasLimit:
 export function packGasFees(maxPriorityFeePerGas: bigint, maxFeePerGas: bigint): Hex {
   return (pad(`0x${maxPriorityFeePerGas.toString(16)}`, { size: 16, dir: "left" }) +
     pad(`0x${maxFeePerGas.toString(16)}`, { size: 16, dir: "left" }).slice(2)) as Hex;
+}
+
+/** Encode an arbitrary string as a bytes32 label (truncated/padded). */
+export function stringToBytes32(label: string | undefined): Hex {
+  if (!label) return ("0x" + "00".repeat(32)) as Hex;
+  const enc = new TextEncoder().encode(label).slice(0, 32);
+  const hex = Array.from(enc, (b) => b.toString(16).padStart(2, "0")).join("");
+  return ("0x" + hex.padEnd(64, "0")) as Hex;
+}
+
+export function bytes32ToString(label: Hex | undefined): string {
+  if (!label || label === "0x") return "";
+  const bytes: number[] = [];
+  for (let i = 2; i < label.length; i += 2) {
+    const b = parseInt(label.slice(i, i + 2), 16);
+    if (b === 0) break;
+    bytes.push(b);
+  }
+  return new TextDecoder().decode(new Uint8Array(bytes));
 }
