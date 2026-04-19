@@ -2,6 +2,7 @@
   "name": "yield-pilot",
   "version": "0.0.1",
   "private": true,
+  "description": "DeFi yield management dApp — ERC-4626 vault + ERC-4337 passkey smart accounts + gasless deposits",
   "packageManager": "pnpm@9.12.0",
   "engines": {
     "node": ">=20.10.0",
