@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { registerPasskey, savePasskey } from "../../lib/passkey";
+import { useWallet } from "../../hooks/useWallet";
 import type { Address } from "viem";
 
 interface ParsedLink {
@@ -41,6 +42,7 @@ export function JoinDeviceDialog({
   onOpenChange: (v: boolean) => void;
   initialLink?: string;
 }) {
+  const wallet = useWallet();
   const [raw, setRaw] = useState(initialLink ?? "");
   const [nickname, setNickname] = useState("");
   const [status, setStatus] = useState<"idle" | "registering" | "waiting" | "paired" | "error">("idle");
@@ -86,8 +88,11 @@ export function JoinDeviceDialog({
             nickname: record.nickname,
           }));
         } else if (m.type === "pair:complete") {
-          // Browser A confirmed on-chain. Cache the record locally.
+          // Browser A confirmed on-chain. Cache the record locally + flip the
+          // wallet facade to the passkey path so the header shows the address
+          // pill immediately instead of the Connect button.
           await savePasskey(record);
+          await wallet.choosePasskey();
           setStatus("paired");
           toast.success("Linked to existing account");
         } else if (m.type === "pair:closed") {
@@ -102,7 +107,7 @@ export function JoinDeviceDialog({
       setStatus("error");
       setError("WebSocket error");
     };
-  }, [raw, nickname]);
+  }, [raw, nickname, wallet]);
 
   useEffect(() => {
     if (!open && wsRef.current) {
