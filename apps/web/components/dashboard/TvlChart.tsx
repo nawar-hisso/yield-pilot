@@ -1,13 +1,16 @@
 "use client";
 
 import { useMemo } from "react";
+import useSWR from "swr";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
+import { fetchDailyTvl, type DailyTvlPoint } from "../../lib/subgraphQueries";
+import { USDC_DECIMALS } from "../../lib/contracts";
 
 type Point = { day: string; tvl: number };
 
 /** mulberry32 — tiny seeded PRNG. Produces the same series on SSR + CSR, which
- *  avoids React hydration mismatches until the subgraph replaces this demo data. */
+ *  keeps the skeleton from jumping when the subgraph returns no data yet. */
 function mulberry32(seed: number): () => number {
   let a = seed;
   return () => {
@@ -19,9 +22,8 @@ function mulberry32(seed: number): () => number {
   };
 }
 
-/** Seeds deterministic demo history. Day labels are relative to a fixed epoch
- *  (not `Date.now()`) so SSR + CSR produce byte-identical markup. */
-const DEMO_EPOCH_MS = Date.UTC(2026, 3, 1); // 2026-04-01 UTC
+const DEMO_EPOCH_MS = Date.UTC(2026, 3, 1);
+const USDC_DIVISOR = 10n ** BigInt(USDC_DECIMALS);
 
 function mockSeries(days = 30): Point[] {
   const rand = mulberry32(0xa71d9 + days);
@@ -39,8 +41,34 @@ function mockSeries(days = 30): Point[] {
   return out;
 }
 
+function pointsToChart(points: DailyTvlPoint[]): Point[] {
+  return points.map((p) => {
+    const d = new Date(p.day * 1000);
+    // Round TVL to the nearest whole dollar. USDC has 6 decimals so divide out.
+    const tvl = Number(p.tvlUsdc / USDC_DIVISOR);
+    return {
+      day: d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }),
+      tvl,
+    };
+  });
+}
+
 export function TvlChart() {
-  const data = useMemo(() => mockSeries(), []);
+  const { data: points } = useSWR<DailyTvlPoint[] | null>(
+    "tvl-daily-30",
+    () => fetchDailyTvl(30),
+    { refreshInterval: 60_000, revalidateOnFocus: false },
+  );
+
+  const chart = useMemo(() => {
+    if (points && points.length > 1) return pointsToChart(points);
+    return mockSeries();
+  }, [points]);
+
+  const live = points !== undefined && points !== null && points.length > 1;
+  const first = chart[0];
+  const last = chart[chart.length - 1];
+  const delta = first && last && first.tvl > 0 ? ((last.tvl - first.tvl) / first.tvl) * 100 : 0;
 
   return (
     <Card className="overflow-hidden">
@@ -49,15 +77,18 @@ export function TvlChart() {
           <div>
             <CardTitle className="font-display text-base">Vault TVL</CardTitle>
             <CardDescription className="text-xs">
-              Mock 30-day trend — live data plugs in once the subgraph deploys.
+              {live
+                ? `Last 30 days · live from subgraph`
+                : `Mock 30-day trend — awaiting on-chain deposits.`}
             </CardDescription>
           </div>
           <div className="text-right">
             <div className="text-xl font-bold tabular-nums">
-              ${data[data.length - 1]?.tvl.toLocaleString()}
+              ${last?.tvl.toLocaleString() ?? "—"}
             </div>
             <div className="text-[11px] font-medium text-success">
-              +{((data[data.length - 1]!.tvl - data[0]!.tvl) / data[0]!.tvl * 100).toFixed(1)}% · 30d
+              {delta >= 0 ? "+" : ""}
+              {delta.toFixed(1)}% · 30d
             </div>
           </div>
         </div>
@@ -65,7 +96,7 @@ export function TvlChart() {
       <CardContent className="p-0">
         <div className="h-40 w-full font-mono text-[11px]">
           <ResponsiveContainer>
-            <AreaChart data={data} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+            <AreaChart data={chart} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
               <defs>
                 <linearGradient id="tvlFill" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="hsl(var(--accent))" stopOpacity={0.55} />
@@ -79,7 +110,7 @@ export function TvlChart() {
                 fontSize={10}
                 tickLine={false}
                 axisLine={false}
-                interval={Math.ceil(data.length / 6)}
+                interval={Math.ceil(chart.length / 6)}
               />
               <YAxis
                 stroke="hsl(var(--muted-foreground))"
