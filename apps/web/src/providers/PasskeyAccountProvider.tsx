@@ -88,6 +88,11 @@ export function usePasskeyAccount() {
 }
 
 function deriveAddress(record: PasskeyRecord): Address | null {
+  // Paired devices: the record is pinned to the primary account's on-chain
+  // address. Deriving from (x, y) locally would give the paired device's own
+  // counterfactual, which is a different account entirely.
+  if (record.accountAddress) return record.accountAddress;
+
   const { accountFactory, accountImpl } = contractsFor(chainId());
   if (!accountFactory || !accountImpl) return null;
   return counterfactualAddress({

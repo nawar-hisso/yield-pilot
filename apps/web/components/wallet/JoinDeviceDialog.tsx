@@ -88,10 +88,11 @@ export function JoinDeviceDialog({
             nickname: record.nickname,
           }));
         } else if (m.type === "pair:complete") {
-          // Browser A confirmed on-chain. Cache the record locally + flip the
-          // wallet facade to the passkey path so the header shows the address
-          // pill immediately instead of the Connect button.
-          await savePasskey(record);
+          // Browser A confirmed on-chain. Cache the record locally, pinning
+          // it to Browser A's smart-account address (NOT Browser B's counterfactual).
+          // Then flip the wallet facade to the passkey path so the header shows
+          // the address pill immediately instead of the Connect button.
+          await savePasskey({ ...record, accountAddress: parsed.accountAddress });
           await wallet.choosePasskey();
           setStatus("paired");
           toast.success("Linked to existing account");

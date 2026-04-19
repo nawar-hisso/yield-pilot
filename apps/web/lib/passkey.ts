@@ -35,6 +35,11 @@ export interface PasskeyRecord {
   /** Optional user-supplied label (e.g. "MacBook · Safari"). Empty string = unset. */
   nickname: string;
   createdAt: number;
+  /** Address of the smart account this passkey signs for. Set for paired
+   *  devices — Browser B's passkey signs Browser A's account, so the
+   *  counterfactual derivation off this record's (x, y) would give the wrong
+   *  address. Omitted for primary devices (account address = counterfactual). */
+  accountAddress?: `0x${string}`;
 }
 
 const DB_NAME = "yield-pilot-passkey";
