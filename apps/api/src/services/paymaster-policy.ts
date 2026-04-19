@@ -79,8 +79,19 @@ export function evaluatePolicy(input: PolicyInput): PolicyResult {
   if (!vault) {
     return { ok: false, reason: `unsupported chain ${input.chainId}` };
   }
-  if (vault !== input.target.toLowerCase()) {
-    return { ok: false, reason: `target ${input.target} is not the configured vault ${vault}` };
+  const targetLower = input.target.toLowerCase();
+  const senderLower = input.sender.toLowerCase();
+  const isVaultCall = targetLower === vault;
+  // Self-calls (addAuthorizedKey / revokeKey) go through
+  // account.execute(address(this), 0, ...). They're safe to sponsor because
+  // the account contract gates those entrypoints with `onlySelf`, so the
+  // caller must have already signed a valid UserOp with a registered key.
+  const isSelfCall = targetLower === senderLower;
+  if (!isVaultCall && !isSelfCall) {
+    return {
+      ok: false,
+      reason: `target ${input.target} is neither the vault (${vault}) nor a self-call (sender ${input.sender})`,
+    };
   }
 
   if (input.maxCost > MAX_SPONSORED_WEI) {
