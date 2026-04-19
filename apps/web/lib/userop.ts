@@ -253,20 +253,36 @@ export async function buildAndSendUserOp(args: BuildAndSendArgs): Promise<Hex> {
     signature: buildDummySignature(),
   });
 
-  const accountGasLimits = packAccountGasLimits(
-    estimate.verificationGasLimit,
-    estimate.callGasLimit,
-  );
+  // The bundler's estimate is derived from a dummy-signature simulation where
+  // the account early-returns SIG_VALIDATION_FAILED (credId not found). The
+  // real passkey path does the full WebAuthn.verify (SHA-256 × 2 + base64url
+  // encoding + RIP-7212 precompile) and costs 150–300K more. Without a bump,
+  // validation OOGs mid-flight and EntryPoint surfaces AA23 reverted 0x.
+  //
+  // Floor verGas at 400K (covers worst-case WebAuthn with room) and add a
+  // 30% headroom to callGas so executeBatch paths don't OOG on the call side.
+  const VERIFICATION_GAS_FLOOR = 400_000n;
+  const CALL_GAS_HEADROOM_BPS = 3_000n; // 30%
+  const BPS_DENOM = 10_000n;
+  const verificationGasLimit =
+    estimate.verificationGasLimit > VERIFICATION_GAS_FLOOR
+      ? estimate.verificationGasLimit
+      : VERIFICATION_GAS_FLOOR;
+  const callGasLimit =
+    estimate.callGasLimit + (estimate.callGasLimit * CALL_GAS_HEADROOM_BPS) / BPS_DENOM;
+
+  const accountGasLimits = packAccountGasLimits(verificationGasLimit, callGasLimit);
   const gasFees = packGasFees(maxPriorityFeePerGas, maxFeePerGas);
   const preVerificationGas = estimate.preVerificationGas + PRE_VERIFICATION_GAS_BUFFER;
 
   // 5. Paymaster sponsorship. Worst-case cost bound the paymaster commits to
   //    cover = (verGas + callGas + preVerGas + pmValGas + pmPostGas) * maxFeePerGas.
+  //    Use the BUMPED gas budgets so the cap matches what actually executes.
   const paymasterValidationGasLimit = 150_000n;
   const paymasterPostOpGasLimit = 80_000n;
   const maxCost =
-    (estimate.verificationGasLimit +
-      estimate.callGasLimit +
+    (verificationGasLimit +
+      callGasLimit +
       preVerificationGas +
       paymasterValidationGasLimit +
       paymasterPostOpGasLimit) *
@@ -325,6 +341,28 @@ export async function buildAndSendUserOp(args: BuildAndSendArgs): Promise<Hex> {
     paymasterAndData: sponsorship.paymasterAndData,
     signature,
   };
+
+  // Debug dump — ONE copy-paste-friendly JSON blob per UserOp so the full
+  // byte-string lands in the clipboard unchanged. Remove once the passkey
+  // pipeline is bullet-proof.
+  if (typeof window !== "undefined") {
+    const dump = {
+      userOpHash,
+      sender,
+      nonce: nonce.toString(),
+      initCode,
+      callData,
+      accountGasLimits,
+      preVerificationGas: preVerificationGas.toString(),
+      gasFees,
+      paymasterAndData: sponsorship.paymasterAndData,
+      signature,
+      sigLen: (signature.length - 2) / 2,
+      callDataLen: (callData.length - 2) / 2,
+    };
+    // eslint-disable-next-line no-console
+    console.log("[userop] submitting\n" + JSON.stringify(dump, null, 2));
+  }
 
   return submitUserOp(finalOp, chainId);
 }
