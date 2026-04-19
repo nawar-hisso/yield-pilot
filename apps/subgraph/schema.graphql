@@ -18,7 +18,7 @@ type VaultWithdrawal @entity(immutable: true) {
   transactionHash: Bytes!
 }
 
-type UserPosition @entity {
+type UserPosition @entity(immutable: false) {
   id: Bytes!
   totalDeposited: BigInt!
   totalWithdrawn: BigInt!
@@ -36,7 +36,7 @@ type UserPosition @entity {
   transactionHash: Bytes!
 }
 
-type VaultStats @entity {
+type VaultStats @entity(immutable: false) {
   "singleton id = 0x00"
   id: Bytes!
   totalAssets: BigInt!

@@ -11,5 +11,11 @@
     "YieldPilotModule#YieldPilotAccountFactory": "0xe38f4049F7C18DE4fC9C48eb102134cC42027AC9",
     "YieldPilotModule#YieldVault": "0x4662Bd4149CB412E1CdC08E2e3177974c16850AF"
   },
-  "updatedAt": "2026-04-19T13:47:48.952Z"
+  "updatedAt": "2026-04-19T13:47:48.952Z",
+  "startBlock": 10690178,
+  "contracts": {
+    "YieldVault": "0x4662Bd4149CB412E1CdC08E2e3177974c16850AF",
+    "Paymaster": "0xFd865997C431a3886cD23B9CC5BF1d13840b4Bc9",
+    "YieldPilotAccountFactory": "0xe38f4049F7C18DE4fC9C48eb102134cC42027AC9"
+  }
 }
