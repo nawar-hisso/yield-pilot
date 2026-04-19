@@ -167,41 +167,83 @@ pnpm -F @yield-pilot/contracts test    # Hardhat + chai unit tests
 Copy `.env.example` → `.env.local`, then fill in the keys. The per-app
 `.env.example` files are narrower subsets of the root.
 
-### Required to run
+Keys are grouped by sharability: **✅ shareable** values are publicly
+available defaults (on-chain data, public RPCs, dev-only config) — copy
+them verbatim. **⚠️ account-scoped** keys are rate-limited to your account
+and should not be shared. **🚫 secret** keys must never leave your machine.
 
-| Key | Used by | What it is |
+### ✅ Shareable — copy these verbatim
+
+Project + chain + local dev defaults. Safe to paste into any `.env.local`.
+
+```bash
+# === Project meta ===
+PROJECT_NAME=yield-pilot
+NEXT_PUBLIC_APP_NAME=YieldPilot
+NODE_ENV=development
+LOG_LEVEL=debug
+
+# === Chain (primary: Sepolia) ===
+NEXT_PUBLIC_CHAIN_ID=11155111
+NEXT_PUBLIC_CHAIN_NAME=Sepolia
+NEXT_PUBLIC_CHAIN_TICKER=ETH
+NEXT_PUBLIC_EXPLORER_URL=https://sepolia.etherscan.io
+NEXT_PUBLIC_CHAIN_ID_BASE_SEPOLIA=84532
+
+NEXT_PUBLIC_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com
+RPC_URL_SEPOLIA=https://ethereum-sepolia-rpc.publicnode.com
+RPC_URL_BASE_SEPOLIA=https://sepolia.base.org
+
+# === Local dev URLs + ports ===
+API_PORT=4000
+API_PUBLIC_URL=http://localhost:4000
+WS_PATH=/ws/events
+CORS_ORIGIN=http://localhost:3000
+NEXT_PUBLIC_API_URL=http://localhost:4000
+NEXT_PUBLIC_WS_URL=ws://localhost:4000/ws/events
+
+# === Local Postgres (docker/docker-compose.yml) ===
+DATABASE_URL=postgresql://dev:dev@localhost:5432/yield-pilot
+DIRECT_URL=postgresql://dev:dev@localhost:5432/yield-pilot
+
+# === Paymaster policy (tunable, safe testnet defaults) ===
+PAYMASTER_DAILY_GLOBAL_CAP_WEI=50000000000000000     # 0.05 ETH / day total
+PAYMASTER_DAILY_PER_SENDER_CAP_WEI=10000000000000000 # 0.01 ETH / day per sender
+```
+
+**Deployed contract addresses** — every `*_ADDRESS*` key is a public
+on-chain address, inherently shareable. You fill them in yourself after
+running `pnpm -F @yield-pilot/contracts deploy:sepolia` (or paste the
+addresses from my live Sepolia deployment if I've added them to a
+`deployments/` snapshot):
+
+- Frontend: `NEXT_PUBLIC_VAULT_ADDRESS*`, `NEXT_PUBLIC_MOCK_USDC_ADDRESS*`, `NEXT_PUBLIC_MOCK_AAVE_ADDRESS*`, `NEXT_PUBLIC_PAYMASTER_CONTRACT_ADDRESS*`, `NEXT_PUBLIC_ACCOUNT_FACTORY_ADDRESS*`, `NEXT_PUBLIC_ACCOUNT_IMPL_ADDRESS*`
+- Backend mirrors (same values, no `NEXT_PUBLIC_` prefix): `VAULT_ADDRESS_*`, `PAYMASTER_CONTRACT_ADDRESS_*`, `ACCOUNT_FACTORY_ADDRESS_*`
+
+### ⚠️ Account-scoped — fill with **your own** values
+
+Not strictly secret (Reown + Pimlico keys end up in the frontend bundle
+anyway), but each one is tied to *your* quota and billing. Don't paste
+mine. Free tiers on testnets are plenty for a dev setup.
+
+| Key | Where to get it | Consumer |
 |---|---|---|
-| `RPC_URL_BASE_SEPOLIA` | contracts, api | Base Sepolia RPC |
-| `DEPLOYER_PRIVATE_KEY` | contracts | Signer for `ignition deploy` (server-only) |
-| `ETHERSCAN_API_KEY` | contracts | Used by `hardhat verify` / `--verify` flag |
-| `NEXT_PUBLIC_REOWN_PROJECT_ID` | web | Reown AppKit wallet modal |
-| `NEXT_PUBLIC_PIMLICO_API_KEY` | web | Pimlico bundler (testnet tier is free) |
-| `PAYMASTER_SIGNER_PRIVATE_KEY` | api | Backend key that signs sponsorship approvals. **Must match** on-chain `Paymaster.verifier()` |
-| `DATABASE_URL` / `DIRECT_URL` | api | Postgres connection (Prisma). Default: `postgresql://dev:dev@localhost:5432/yield-pilot` |
+| `NEXT_PUBLIC_REOWN_PROJECT_ID` | [cloud.reown.com](https://cloud.reown.com) → new project | web |
+| `NEXT_PUBLIC_PIMLICO_API_KEY` | [dashboard.pimlico.io](https://dashboard.pimlico.io) → new key | web |
+| `STUDIO_SLUG` | [thegraph.com/studio](https://thegraph.com/studio) → new subgraph | subgraph |
+| `NEXT_PUBLIC_SUBGRAPH_URL_SEPOLIA` | Emitted by `pnpm -F @yield-pilot/subgraph deploy` | web |
 
-### Filled after contract deployment
+### 🚫 Secrets — **never** commit or share
 
-| Key | Purpose |
-|---|---|
-| `NEXT_PUBLIC_VAULT_ADDRESS_SEPOLIA` | Deployed `YieldVault` |
-| `NEXT_PUBLIC_MOCK_USDC_ADDRESS_SEPOLIA` | Deployed `MockUSDC` |
-| `NEXT_PUBLIC_MOCK_AAVE_ADDRESS_SEPOLIA` | Deployed `MockAave` strategy |
-| `NEXT_PUBLIC_PAYMASTER_CONTRACT_ADDRESS_SEPOLIA` | Deployed `Paymaster` |
-| `NEXT_PUBLIC_ACCOUNT_FACTORY_ADDRESS_SEPOLIA` | Deployed `YieldPilotAccountFactory` |
-| `VAULT_ADDRESS_SEPOLIA` · `PAYMASTER_CONTRACT_ADDRESS_SEPOLIA` · `ACCOUNT_FACTORY_ADDRESS_SEPOLIA` | Backend-only copies (no `NEXT_PUBLIC_` prefix) |
+Each of these gives an attacker write access to something you control.
+Generate your own (`cast wallet new`, or through the service dashboard).
 
-
-| Key | Purpose |
-|---|---|
-| `NEXT_PUBLIC_SUBGRAPH_URL_SEPOLIA` | Subgraph Studio query endpoint |
-| `STUDIO_SLUG` / `STUDIO_DEPLOY_KEY` | `graph deploy` credentials |
-
-### Paymaster policy (safe defaults)
-
-| Key | Default | Purpose |
+| Key | Used by | Worst case if leaked |
 |---|---|---|
-| `PAYMASTER_DAILY_GLOBAL_CAP_WEI` | `50000000000000000` (0.05 ETH) | Sliding-window daily cap across all senders |
-| `PAYMASTER_DAILY_PER_SENDER_CAP_WEI` | `10000000000000000` (0.01 ETH) | Sliding-window per-sender daily cap |
+| `DEPLOYER_PRIVATE_KEY` | contracts | Attacker redeploys / transfers ownership of your contracts |
+| `PAYMASTER_SIGNER_PRIVATE_KEY` | api | Attacker forges sponsorship approvals → drains paymaster EntryPoint deposit |
+| `ETHERSCAN_API_KEY` | contracts | Rate-limit abuse on your Etherscan account |
+| `STUDIO_DEPLOY_KEY` | subgraph | Attacker overwrites your subgraph with malicious mappings |
 
 > **Verifier invariant.** The address derived from
 > `PAYMASTER_SIGNER_PRIVATE_KEY` **must equal** the on-chain
