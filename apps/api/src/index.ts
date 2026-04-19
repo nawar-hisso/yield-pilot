@@ -5,7 +5,6 @@ import helmet from "helmet";
 import pinoHttp from "pino-http";
 import { apiEnvSchema } from "@yield-pilot/shared";
 import { logger } from "./logger.js";
-import { userRouter } from "./routes/user.js";
 import { paymasterRouter } from "./routes/paymaster.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { attachWs, getWss, getEventsPath } from "./ws/server.js";
@@ -24,7 +23,6 @@ app.get("/healthz", (_req, res) => res.json({ ok: true, ts: Date.now() }));
 
 // JSON parser for the rest of the API.
 app.use(express.json({ limit: "1mb" }));
-app.use("/api/user", userRouter);
 app.use("/api/paymaster", paymasterRouter);
 app.use(errorHandler);
 

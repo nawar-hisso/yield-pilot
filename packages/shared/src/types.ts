@@ -1,15 +1,5 @@
 // Cross-app types. Both apps/web and apps/api import from here.
 
-import type { ChainSlug } from "./chains.js";
-
-export interface UserPreferences {
-  address: string;
-  notifyDeposits: boolean;
-  notifyWithdraws: boolean;
-  preferredChain: ChainSlug;
-  updatedAt: string;
-}
-
 
 export interface VaultEvent {
   kind: VaultEventKind;
