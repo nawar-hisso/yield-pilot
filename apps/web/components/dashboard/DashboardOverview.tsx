@@ -15,7 +15,15 @@ import { useWallet } from "../../hooks/useWallet";
 import { Button } from "../ui/button";
 import { USDC_DECIMALS } from "../../lib/contracts";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
-import { fetchRecentActivity, type VaultActivityEvent } from "../../lib/subgraphQueries";
+import {
+  computeApyFromSharePrice,
+  fetchRecentActivity,
+  fetchSharePriceSeries,
+  fetchUserFlows,
+  type SharePricePoint,
+  type UserFlowSummary,
+  type VaultActivityEvent,
+} from "../../lib/subgraphQueries";
 import { short } from "../../lib/utils";
 
 function fmt(v: bigint | undefined) {
@@ -38,7 +46,42 @@ export function DashboardOverview() {
     () => fetchRecentActivity(10),
     { refreshInterval: 30_000, revalidateOnFocus: false },
   );
+  const { data: flows } = useSWR<UserFlowSummary | null>(
+    wallet.address ? ["user-flows", wallet.address] : null,
+    ([, addr]) => fetchUserFlows(addr as `0x${string}`),
+    { refreshInterval: 30_000, revalidateOnFocus: false },
+  );
+  const { data: sharePriceSeries } = useSWR<SharePricePoint[] | null>(
+    "share-price-series",
+    () => fetchSharePriceSeries(1000),
+    { refreshInterval: 60_000, revalidateOnFocus: false },
+  );
+  const apy = useMemo(
+    () => (sharePriceSeries ? computeApyFromSharePrice(sharePriceSeries) : null),
+    [sharePriceSeries],
+  );
   const heroRef = useRef<HTMLDivElement>(null);
+
+  // P&L = current position value − cost basis (deposits − withdrawals).
+  // Positive = profit, negative = drawdown. We require BOTH (a) subgraph to
+  // have returned user flows AND (b) a non-zero position or cost basis before
+  // rendering — an empty position with no events just reads "—".
+  const pnl = useMemo(() => {
+    if (!flows || !position) return null;
+    if (flows.costBasis === 0n && position.userAssets === 0n) return null;
+    const current = position.userAssets;
+    const basis = flows.costBasis;
+    // Absolute P&L can be negative; viem/bigint handles it as long as we
+    // keep the subtraction unsigned-aware.
+    const absNumerator = current >= basis ? current - basis : basis - current;
+    const sign = current >= basis ? 1 : -1;
+    const absUsd = Number(formatUnits(absNumerator, USDC_DECIMALS)) * sign;
+    const pctDenominator = basis === 0n ? 1n : basis;
+    const pct = basis === 0n
+      ? 0
+      : Number((current - basis) * 10_000n / pctDenominator) / 100;
+    return { absUsd, pct };
+  }, [flows, position]);
 
   // priority; fall back to the subgraph-polled activity feed. Always show the
   // most recent at the top.
@@ -183,16 +226,50 @@ export function DashboardOverview() {
         />
         <StatCard
           label="P&L"
-          value="—"
-          hint="History arrives with the subgraph"
+          value={
+            pnl === null ? (
+              "—"
+            ) : (
+              <NumberTicker
+                value={pnl.absUsd}
+                prefix={pnl.absUsd >= 0 ? "+$" : "-$"}
+                format={(v) => Math.abs(v).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                className={pnl.absUsd >= 0 ? "text-success" : "text-destructive"}
+              />
+            )
+          }
+          hint={
+            pnl === null
+              ? "No positions yet"
+              : `vs. $${Number(formatUnits(flows!.costBasis, USDC_DECIMALS)).toLocaleString(undefined, { maximumFractionDigits: 2 })} cost basis`
+          }
           icon={TrendingUp}
           loading={isLoading}
           accent="violet"
+          change={
+            pnl !== null && flows!.costBasis > 0n
+              ? {
+                  value: `${Math.abs(pnl.pct).toFixed(2)}%`,
+                  direction: pnl.pct >= 0 ? "up" : "down",
+                }
+              : undefined
+          }
         />
         <StatCard
           label="APY"
-          value="—"
-          hint="Arrives with the subgraph"
+          value={
+            apy === null ? (
+              "—"
+            ) : (
+              <NumberTicker
+                value={apy}
+                suffix="%"
+                format={(v) => v.toFixed(2)}
+                className="text-[color:var(--color-gold)]"
+              />
+            )
+          }
+          hint={apy === null ? "Needs 1+ hour of snapshots" : "Realised share-price growth"}
           icon={Percent}
           loading={isLoading}
           accent="gold"

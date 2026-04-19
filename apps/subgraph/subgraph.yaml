@@ -25,6 +25,7 @@ dataSources:
         - VaultWithdrawal
         - UserPosition
         - VaultStats
+        - SharePriceSnapshot
       abis:
         - name: YieldVault
           file: ./abis/YieldVault.json

@@ -1,8 +1,38 @@
-import { BigInt, Bytes } from "@graphprotocol/graph-ts";
-import { Deposit, Withdraw } from "../generated/YieldVault/YieldVault";
-import { VaultDeposit, VaultWithdrawal, UserPosition, VaultStats } from "../generated/schema";
+import { BigInt, Bytes, ethereum } from "@graphprotocol/graph-ts";
+import { Deposit, Withdraw, YieldVault as YieldVaultContract } from "../generated/YieldVault/YieldVault";
+import {
+  VaultDeposit,
+  VaultWithdrawal,
+  UserPosition,
+  VaultStats,
+  SharePriceSnapshot,
+} from "../generated/schema";
 
 const STATS_ID = Bytes.fromHexString("0x00");
+const ONE_E18 = BigInt.fromString("1000000000000000000");
+
+/**
+ * Snapshot the vault's on-chain share price at the current event block.
+ * Uses eth_call into totalAssets() + totalSupply() so the snapshot reflects
+ * strategy yield, not just deposit/withdraw deltas.
+ */
+function snapshotSharePrice(event: ethereum.Event): void {
+  const vault = YieldVaultContract.bind(event.address);
+  const taRes = vault.try_totalAssets();
+  const tsRes = vault.try_totalSupply();
+  if (taRes.reverted || tsRes.reverted) return;
+
+  const id = event.transaction.hash.concatI32(event.logIndex.toI32());
+  const snap = new SharePriceSnapshot(id);
+  snap.timestamp = event.block.timestamp;
+  snap.block = event.block.number;
+  snap.totalAssets = taRes.value;
+  snap.totalShares = tsRes.value;
+  snap.priceE18 = tsRes.value.equals(BigInt.zero())
+    ? ONE_E18
+    : taRes.value.times(ONE_E18).div(tsRes.value);
+  snap.save();
+}
 
 function loadPosition(user: Bytes): UserPosition {
   let p = UserPosition.load(user);
@@ -54,6 +84,8 @@ export function handleDeposit(event: Deposit): void {
   if (isFirst) s.uniqueDepositors = s.uniqueDepositors + 1;
   s.updatedAt = event.block.timestamp;
   s.save();
+
+  snapshotSharePrice(event);
 }
 
 export function handleWithdraw(event: Withdraw): void {
@@ -84,4 +116,6 @@ export function handleWithdraw(event: Withdraw): void {
     : BigInt.zero();
   s.updatedAt = event.block.timestamp;
   s.save();
+
+  snapshotSharePrice(event);
 }

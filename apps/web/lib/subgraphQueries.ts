@@ -36,6 +36,22 @@ export interface VaultActivityEvent {
   txHash: `0x${string}`;
 }
 
+export interface UserFlowSummary {
+  /** Sum of all deposits this user made, USDC 6-dec. */
+  totalDeposited: bigint;
+  /** Sum of all withdrawals this user made, USDC 6-dec. */
+  totalWithdrawn: bigint;
+  /** Cost basis = totalDeposited − totalWithdrawn (never < 0). */
+  costBasis: bigint;
+}
+
+export interface SharePricePoint {
+  /** Unix seconds at snapshot time. */
+  ts: number;
+  /** Share price scaled to 1e18 (preserves precision over long spans). */
+  priceE18: bigint;
+}
+
 const FLOW_QUERY = gql`
   query VaultFlows($first: Int!) {
     vaultDeposits(first: $first, orderBy: timestamp, orderDirection: asc) {
@@ -55,6 +71,26 @@ interface ActivityEvent {
   timestamp: string;
   transactionHash: string;
 }
+
+const SHARE_PRICE_QUERY = gql`
+  query SharePrices($first: Int!) {
+    sharePriceSnapshots(first: $first, orderBy: timestamp, orderDirection: asc) {
+      timestamp
+      priceE18
+    }
+  }
+`;
+
+const USER_FLOWS_QUERY = gql`
+  query UserFlows($user: Bytes!, $first: Int!) {
+    vaultDeposits(where: { user: $user }, first: $first, orderBy: timestamp, orderDirection: asc) {
+      assets
+    }
+    vaultWithdrawals(where: { user: $user }, first: $first, orderBy: timestamp, orderDirection: asc) {
+      assets
+    }
+  }
+`;
 
 const RECENT_ACTIVITY_QUERY = gql`
   query RecentActivity($first: Int!) {
@@ -210,4 +246,80 @@ export async function fetchRecentActivity(
   } catch {
     return null;
   }
+}
+
+/**
+ * Sum every Deposit + Withdrawal this user has ever made against the vault.
+ * costBasis = totalDeposited − totalWithdrawn, floored at 0 so we never
+ * report negative cost. Compare to the vault's convertToAssets(userShares)
+ * for realized + unrealized P&L.
+ *
+ * Subgraph stores `user` as the depositor's own address for deposits and as
+ * the share-owner's address for withdrawals (ERC-4626 semantics). That matches
+ * wallet.address — the same value wagmi exposes for both EOA and passkey paths.
+ */
+export async function fetchUserFlows(
+  user: `0x${string}`,
+  chainId?: number,
+): Promise<UserFlowSummary | null> {
+  try {
+    const client = subgraphClient(chainId);
+    const data = await client.request<{
+      vaultDeposits: { assets: string }[];
+      vaultWithdrawals: { assets: string }[];
+    }>(USER_FLOWS_QUERY, { user: user.toLowerCase(), first: 1000 });
+
+    let totalDeposited = 0n;
+    for (const d of data.vaultDeposits) totalDeposited += BigInt(d.assets);
+    let totalWithdrawn = 0n;
+    for (const w of data.vaultWithdrawals) totalWithdrawn += BigInt(w.assets);
+    const costBasis = totalDeposited > totalWithdrawn ? totalDeposited - totalWithdrawn : 0n;
+    return { totalDeposited, totalWithdrawn, costBasis };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetch the SharePriceSnapshot series indexed by the subgraph. Each snapshot
+ * is captured at a Deposit or Withdraw event — price reflects vault.totalAssets
+ * / vault.totalSupply at that block, so strategy yield is already baked in.
+ * Returns null when the subgraph URL is unset or hasn't been redeployed with
+ * the SharePriceSnapshot entity yet (caller falls back to the TVL-inflow APY).
+ */
+export async function fetchSharePriceSeries(
+  limit = 1000,
+  chainId?: number,
+): Promise<SharePricePoint[] | null> {
+  try {
+    const client = subgraphClient(chainId);
+    const data = await client.request<{
+      sharePriceSnapshots: { timestamp: string; priceE18: string }[];
+    }>(SHARE_PRICE_QUERY, { first: limit });
+    return data.sharePriceSnapshots.map((s) => ({
+      ts: Number(s.timestamp),
+      priceE18: BigInt(s.priceE18),
+    }));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Annualised APY between the first + last snapshot in `points`. Uses simple
+ * (non-compounding) rate: APY = (endPrice / startPrice − 1) × (year / span).
+ * Returns null when there's < 2 points or the span is too short to be
+ * meaningful (< 1 hour).
+ */
+export function computeApyFromSharePrice(points: SharePricePoint[]): number | null {
+  if (points.length < 2) return null;
+  const first = points[0]!;
+  const last = points[points.length - 1]!;
+  const spanSeconds = last.ts - first.ts;
+  if (spanSeconds < 3600) return null; // avoid noisy early readings
+  if (first.priceE18 === 0n) return null;
+  const SECONDS_PER_YEAR = 31_557_600;
+  // growth = (last − first) / first, scaled via 1e18 denominators for precision.
+  const growthBps = Number(((last.priceE18 - first.priceE18) * 1_000_000n) / first.priceE18) / 10_000;
+  return growthBps * (SECONDS_PER_YEAR / spanSeconds);
 }

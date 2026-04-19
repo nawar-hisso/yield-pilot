@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, Fingerprint } from "lucide-react";
+import { Loader2, Fingerprint, QrCode, Keyboard } from "lucide-react";
 import { toast } from "sonner";
+import { Scanner, type IDetectedBarcode } from "@yudiel/react-qr-scanner";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -51,7 +52,22 @@ export function JoinDeviceDialog({
   const [nickname, setNickname] = useState("");
   const [status, setStatus] = useState<"idle" | "registering" | "waiting" | "paired" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [mode, setMode] = useState<"paste" | "scan">("paste");
+  const [scanError, setScanError] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+
+  const onScan = useCallback((codes: IDetectedBarcode[]) => {
+    const first = codes[0]?.rawValue;
+    if (!first) return;
+    const parsed = parsePairUrl(first);
+    if (!parsed) {
+      setScanError("That QR code doesn't look like a YieldPilot pairing link.");
+      return;
+    }
+    setScanError(null);
+    setRaw(first);
+    setMode("paste");
+  }, []);
 
   useEffect(() => {
     if (initialLink) setRaw(initialLink);
@@ -174,36 +190,80 @@ export function JoinDeviceDialog({
 
         {status === "idle" || status === "error" ? (
           <div className="space-y-3">
-            <div>
-              <label className="text-xs font-medium uppercase tracking-[0.08em] text-[color:var(--color-text-3)]">
-                Pairing link
-              </label>
-              <Input
-                className="mt-1 font-mono text-xs"
-                value={raw}
-                onChange={(e) => setRaw(e.target.value)}
-                placeholder="http://localhost:3000/?pair=…&account=0x…"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium uppercase tracking-[0.08em] text-[color:var(--color-text-3)]">
-                Nickname for this device (optional)
-              </label>
-              <Input
-                className="mt-1"
-                value={nickname}
-                onChange={(e) => setNickname(e.target.value.slice(0, 32))}
-                placeholder="e.g. MacBook · Brave"
-              />
-            </div>
-            {error ? <p className="text-xs text-destructive break-words">{error}</p> : null}
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-              <Button onClick={submit} disabled={!raw}>
-                <Fingerprint className="mr-2 h-4 w-4" />
-                Register passkey
-              </Button>
-            </div>
+            {mode === "scan" ? (
+              <div className="space-y-2">
+                <div className="overflow-hidden rounded-lg border border-border bg-card-muted">
+                  <Scanner
+                    onScan={onScan}
+                    onError={(err) =>
+                      setScanError(err instanceof Error ? err.message : "Camera unavailable")
+                    }
+                    constraints={{ facingMode: "environment" }}
+                    styles={{ container: { width: "100%", aspectRatio: "1 / 1" } }}
+                  />
+                </div>
+                {scanError ? (
+                  <p className="text-xs text-destructive break-words">{scanError}</p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Point the camera at the QR code shown on your other device.
+                  </p>
+                )}
+                <div className="flex justify-between gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setMode("paste")}>
+                    <Keyboard className="mr-2 h-3.5 w-3.5" />
+                    Paste link instead
+                  </Button>
+                  <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-medium uppercase tracking-[0.08em] text-[color:var(--color-text-3)]">
+                      Pairing link
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setScanError(null);
+                        setMode("scan");
+                      }}
+                      className="inline-flex items-center gap-1 text-xs text-accent hover:underline"
+                    >
+                      <QrCode className="h-3.5 w-3.5" />
+                      Scan QR
+                    </button>
+                  </div>
+                  <Input
+                    className="mt-1 font-mono text-xs"
+                    value={raw}
+                    onChange={(e) => setRaw(e.target.value)}
+                    placeholder="http://localhost:3000/?pair=…&account=0x…"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium uppercase tracking-[0.08em] text-[color:var(--color-text-3)]">
+                    Nickname for this device (optional)
+                  </label>
+                  <Input
+                    className="mt-1"
+                    value={nickname}
+                    onChange={(e) => setNickname(e.target.value.slice(0, 32))}
+                    placeholder="e.g. MacBook · Brave"
+                  />
+                </div>
+                {error ? <p className="text-xs text-destructive break-words">{error}</p> : null}
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+                  <Button onClick={submit} disabled={!raw}>
+                    <Fingerprint className="mr-2 h-4 w-4" />
+                    Register passkey
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         ) : status === "registering" ? (
           <div className="flex items-center gap-2 text-sm">

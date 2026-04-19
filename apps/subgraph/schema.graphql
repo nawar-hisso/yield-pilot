@@ -44,3 +44,20 @@ type VaultStats @entity(immutable: false) {
   uniqueDepositors: Int!
   updatedAt: BigInt!
 }
+
+"""
+Share-price checkpoint captured on every Deposit and Withdraw event. Share
+price is derived from the vault's on-chain totalAssets() and totalSupply()
+at the event block, so it includes strategy yield — the TVL snapshot in
+VaultStats alone can't see that. `priceE18 = totalAssets * 1e18 / totalShares`
+(or 1e18 when totalShares is zero). Used by the web client to compute a
+true share-price-based APY instead of an inflow proxy.
+"""
+type SharePriceSnapshot @entity(immutable: true) {
+  id: Bytes!
+  timestamp: BigInt!
+  block: BigInt!
+  totalAssets: BigInt!
+  totalShares: BigInt!
+  priceE18: BigInt!
+}

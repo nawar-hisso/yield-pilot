@@ -6,18 +6,60 @@ import { Percent } from "lucide-react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
 import { EmptyState } from "../shared/EmptyState";
-import { fetchDailyTvl, type DailyTvlPoint } from "../../lib/subgraphQueries";
+import {
+  fetchDailyTvl,
+  fetchSharePriceSeries,
+  type DailyTvlPoint,
+  type SharePricePoint,
+} from "../../lib/subgraphQueries";
 
-type Point = { day: string; apy: number };
+type Point = { label: string; apy: number; ts: number };
+
+const ONE_DAY = 86_400;
+const SECONDS_PER_YEAR = 31_557_600;
 
 /**
- * Derive a rough APY proxy from the daily-TVL series. Strategy yield accrues
- * off-chain for the mock vault, so we don't have direct share-price deltas
- * to work with; instead we treat 7-day TVL growth as a stand-in. This over-
- * states true APY when inflows dominate and understates it during withdraws,
- * so it's clearly labelled "inflow-derived" until a sharePrice entity lands.
+ * Derive APY from share-price snapshots. Each point compares its priceE18 to
+ * the first snapshot; the annualised growth rate over that elapsed span is
+ * the "running" APY. More meaningful than a fixed rolling window once the
+ * vault has multiple days of yield accrual.
  */
-function derivedApy(points: DailyTvlPoint[]): Point[] {
+function apyFromSharePrice(points: SharePricePoint[]): Point[] {
+  if (points.length === 0) return [];
+  const out: Point[] = [];
+  const first = points[0]!;
+  const multiDay = points[points.length - 1]!.ts - first.ts > ONE_DAY;
+  for (const p of points) {
+    let apy = 0;
+    if (first.priceE18 > 0n) {
+      const elapsed = Math.max(1, p.ts - first.ts);
+      const growthBps = Number(((p.priceE18 - first.priceE18) * 1_000_000n) / first.priceE18) / 10_000;
+      apy = growthBps * (SECONDS_PER_YEAR / elapsed);
+    }
+    apy = Math.max(-25, Math.min(25, apy));
+    const d = new Date(p.ts * 1000);
+    out.push({
+      ts: p.ts,
+      apy: Number(apy.toFixed(2)),
+      label: multiDay
+        ? d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })
+        : d.toLocaleTimeString("en-US", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+            timeZone: "UTC",
+          }),
+    });
+  }
+  return out;
+}
+
+/**
+ * Fallback: APY derived from daily-TVL inflow deltas. Over-states true APY
+ * when inflows dominate, under-states during withdrawals. Only used when the
+ * subgraph hasn't been redeployed with SharePriceSnapshot yet.
+ */
+function apyFromTvlInflow(points: DailyTvlPoint[]): Point[] {
   const WINDOW = 7;
   const out: Point[] = [];
   for (let i = 0; i < points.length; i++) {
@@ -34,22 +76,40 @@ function derivedApy(points: DailyTvlPoint[]): Point[] {
     apy = Math.max(0, Math.min(25, apy));
     const d = new Date(cur.day * 1000);
     out.push({
-      day: d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }),
+      ts: cur.day,
       apy: Number(apy.toFixed(2)),
+      label: d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }),
     });
   }
   return out;
 }
 
 export function ApyChart() {
-  const { data: points, isLoading } = useSWR<DailyTvlPoint[] | null>(
+  const { data: sharePrice, isLoading: isPriceLoading } = useSWR<SharePricePoint[] | null>(
+    "share-price-series",
+    () => fetchSharePriceSeries(1000),
+    { refreshInterval: 60_000, revalidateOnFocus: false },
+  );
+  // Fallback source — only consulted if the subgraph has no SharePriceSnapshot
+  // entity yet (old subgraph version).
+  const { data: tvlPoints, isLoading: isTvlLoading } = useSWR<DailyTvlPoint[] | null>(
     "tvl-daily-30",
     () => fetchDailyTvl(30),
     { refreshInterval: 60_000, revalidateOnFocus: false },
   );
 
-  const live = points !== undefined && points !== null && points.length > 1;
-  const chart = useMemo(() => (live ? derivedApy(points as DailyTvlPoint[]) : []), [live, points]);
+  const { chart, source } = useMemo(() => {
+    if (sharePrice && sharePrice.length > 1) {
+      return { chart: apyFromSharePrice(sharePrice), source: "share-price" as const };
+    }
+    if (tvlPoints && tvlPoints.length > 1) {
+      return { chart: apyFromTvlInflow(tvlPoints), source: "tvl-inflow" as const };
+    }
+    return { chart: [] as Point[], source: "none" as const };
+  }, [sharePrice, tvlPoints]);
+
+  const isLoading = isPriceLoading && isTvlLoading;
+  const live = chart.length > 1;
   const last = chart[chart.length - 1];
 
   return (
@@ -60,16 +120,20 @@ export function ApyChart() {
             <CardTitle className="font-display text-base">APY</CardTitle>
             {live ? (
               <CardDescription className="text-xs">
-                Derived from subgraph inflow deltas · needs multi-day activity to stabilise
+                {source === "share-price"
+                  ? "Annualised from on-chain share-price snapshots"
+                  : "Inflow proxy · redeploy the subgraph for share-price APY"}
               </CardDescription>
             ) : null}
           </div>
-          {live ? (
+          {live && last ? (
             <div className="text-right">
               <div className="tabular-nums text-xl font-bold text-[color:var(--color-gold)]">
-                {last ? last.apy.toFixed(2) : "—"}%
+                {last.apy.toFixed(2)}%
               </div>
-              <div className="text-[11px] font-normal text-[color:var(--color-text-2)]">inflow-derived</div>
+              <div className="text-[11px] font-normal text-[color:var(--color-text-2)]">
+                {source === "share-price" ? "realised annualised" : "inflow-derived"}
+              </div>
             </div>
           ) : null}
         </div>
@@ -81,7 +145,7 @@ export function ApyChart() {
               <LineChart data={chart} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
                 <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />
                 <XAxis
-                  dataKey="day"
+                  dataKey="label"
                   stroke="hsl(var(--muted-foreground))"
                   fontSize={10}
                   tickLine={false}
@@ -120,7 +184,7 @@ export function ApyChart() {
             <EmptyState
               icon={Percent}
               title={isLoading ? "Loading…" : "No APY history yet"}
-              description="This chart fills in once the subgraph indexes at least one deposit or withdrawal."
+              description="This chart fills in once the subgraph indexes at least two share-price snapshots."
             />
           </div>
         )}

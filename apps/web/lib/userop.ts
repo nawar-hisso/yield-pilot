@@ -206,11 +206,37 @@ export async function requestSponsorship(args: {
   });
 }
 
+/** Test whether a bundler error message indicates a stale-nonce failure. We
+ *  see this when the account's on-chain nonce moved between our getNonce()
+ *  read and the submit call (concurrent UserOp, multi-device pairing, etc.).
+ *  AA25 = "invalid account nonce" per the ERC-4337 reason-code convention. */
+function isStaleNonceError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const msg = err.message.toLowerCase();
+  return msg.includes("aa25") || msg.includes("invalid account nonce") || msg.includes("nonce too low");
+}
+
 /**
  * End-to-end UserOp pipeline. Signs with the user's passkey, sponsors gas via
  * our Paymaster backend, submits via Pimlico, and returns the UserOp hash.
+ *
+ * If the bundler rejects on AA25 (stale nonce — someone else bumped the
+ * account's nonce since we read it), we refetch the nonce and re-run the
+ * sign + submit path once. Costs one extra Touch ID but beats surfacing a
+ * raw AA25 to the user.
  */
 export async function buildAndSendUserOp(args: BuildAndSendArgs): Promise<Hex> {
+  try {
+    return await buildAndSendOnce(args);
+  } catch (err) {
+    if (!isStaleNonceError(err)) throw err;
+    // eslint-disable-next-line no-console
+    console.warn("[userop] AA25 stale nonce — refetching + retrying once");
+    return await buildAndSendOnce(args);
+  }
+}
+
+async function buildAndSendOnce(args: BuildAndSendArgs): Promise<Hex> {
   const { sender, callData, chainId, paymaster, credentialId } = args;
 
   // 1. initCode — empty if account already deployed.
@@ -226,7 +252,8 @@ export async function buildAndSendUserOp(args: BuildAndSendArgs): Promise<Hex> {
     initCode = buildInitCode(args.initCodeArgs);
   }
 
-  // 2. Nonce — EntryPoint.getNonce(sender, 0).
+  // 2. Nonce — EntryPoint.getNonce(sender, 0). Always fresh; on retry this
+  //    reads whatever the chain has after the concurrent op landed.
   const nonce = await fetchEntryPointNonce(sender);
 
   // 3. Gas price — Pimlico's helper returns fast/standard/slow tiers.
