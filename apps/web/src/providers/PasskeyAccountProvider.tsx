@@ -9,6 +9,7 @@ import {
   type PasskeyRecord,
 } from "../../lib/passkey";
 import { counterfactualAddress } from "../../lib/account";
+import { contractsFor } from "../../lib/contracts";
 
 export interface PasskeyAccountContext {
   /** Passkey record (pubkey + credentialId) if one has been registered. */
@@ -32,14 +33,8 @@ const Ctx = createContext<PasskeyAccountContext>({
   forget: async () => {},
 });
 
-function factoryAddress(): Address | null {
-  const a = process.env.NEXT_PUBLIC_ACCOUNT_FACTORY_ADDRESS;
-  return a && /^0x[0-9a-fA-F]{40}$/.test(a) ? (a as Address) : null;
-}
-
-function accountImplAddress(): Address | null {
-  const a = process.env.NEXT_PUBLIC_ACCOUNT_IMPL_ADDRESS;
-  return a && /^0x[0-9a-fA-F]{40}$/.test(a) ? (a as Address) : null;
+function chainId(): number {
+  return Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? "11155111");
 }
 
 export function PasskeyAccountProvider({ children }: { children: ReactNode }) {
@@ -93,12 +88,11 @@ export function usePasskeyAccount() {
 }
 
 function deriveAddress(record: PasskeyRecord): Address | null {
-  const factory = factoryAddress();
-  const impl = accountImplAddress();
-  if (!factory || !impl) return null;
+  const { accountFactory, accountImpl } = contractsFor(chainId());
+  if (!accountFactory || !accountImpl) return null;
   return counterfactualAddress({
-    factory,
-    accountImpl: impl,
+    factory: accountFactory,
+    accountImpl,
     pubKeyX: record.pubKeyX as Hex,
     pubKeyY: record.pubKeyY as Hex,
   });

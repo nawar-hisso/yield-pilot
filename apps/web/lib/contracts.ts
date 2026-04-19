@@ -42,11 +42,11 @@ export function contractsFor(chainId: number): ContractAddresses {
   }
   if (chainId === 11155111) {
     return {
-      vault: parseAddr(process.env.NEXT_PUBLIC_VAULT_ADDRESS),
-      usdc: parseAddr(process.env.NEXT_PUBLIC_MOCK_USDC_ADDRESS),
-      aave: parseAddr(process.env.NEXT_PUBLIC_MOCK_AAVE_ADDRESS),
-      paymaster: parseAddr(process.env.NEXT_PUBLIC_PAYMASTER_CONTRACT_ADDRESS),
-      accountFactory: parseAddr(process.env.NEXT_PUBLIC_ACCOUNT_FACTORY_ADDRESS),
+      vault: parseAddr(process.env.NEXT_PUBLIC_VAULT_ADDRESS_SEPOLIA),
+      usdc: parseAddr(process.env.NEXT_PUBLIC_MOCK_USDC_ADDRESS_SEPOLIA),
+      aave: parseAddr(process.env.NEXT_PUBLIC_MOCK_AAVE_ADDRESS_SEPOLIA),
+      paymaster: parseAddr(process.env.NEXT_PUBLIC_PAYMASTER_CONTRACT_ADDRESS_SEPOLIA),
+      accountFactory: parseAddr(process.env.NEXT_PUBLIC_ACCOUNT_FACTORY_ADDRESS_SEPOLIA),
       accountImpl: parseAddr(process.env.NEXT_PUBLIC_ACCOUNT_IMPL_ADDRESS),
     };
   }
