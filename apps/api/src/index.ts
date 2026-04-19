@@ -8,8 +8,8 @@ import { logger } from "./logger.js";
 import { userRouter } from "./routes/user.js";
 import { paymasterRouter } from "./routes/paymaster.js";
 import { errorHandler } from "./middleware/errorHandler.js";
-import { attachWs } from "./ws/server.js";
-import { attachPairWs } from "./ws/pair.js";
+import { attachWs, getWss, getEventsPath } from "./ws/server.js";
+import { attachPairWs, getPairWss, getPairPath } from "./ws/pair.js";
 
 const env = apiEnvSchema.parse(process.env);
 
@@ -31,6 +31,26 @@ app.use(errorHandler);
 const server = http.createServer(app);
 attachWs(server, env.WS_PATH);
 attachPairWs(server, "/ws/pair");
+
+// Single upgrade router — route by pathname so two WebSocketServers can
+// share one http.Server without the first-attached one rejecting paths it
+// doesn't own with HTTP 400.
+server.on("upgrade", (req, socket, head) => {
+  const url = new URL(req.url ?? "/", "http://x");
+  if (url.pathname === getEventsPath()) {
+    const events = getWss();
+    if (!events) return socket.destroy();
+    events.handleUpgrade(req, socket, head, (ws) => events.emit("connection", ws, req));
+    return;
+  }
+  if (url.pathname === getPairPath()) {
+    const pair = getPairWss();
+    if (!pair) return socket.destroy();
+    pair.handleUpgrade(req, socket, head, (ws) => pair.emit("connection", ws, req));
+    return;
+  }
+  socket.destroy();
+});
 
 server.listen(env.API_PORT, () => {
   logger.info(

@@ -3,9 +3,11 @@ import { WebSocketServer } from "ws";
 import { logger } from "../logger.js";
 
 let wss: WebSocketServer | null = null;
+let eventsPath = "/ws/events";
 
-export function attachWs(server: http.Server, path: string) {
-  wss = new WebSocketServer({ server, path });
+export function attachWs(_server: http.Server, path: string) {
+  eventsPath = path;
+  wss = new WebSocketServer({ noServer: true });
 
   const interval = setInterval(() => {
     if (!wss) return;
@@ -26,4 +28,8 @@ export function attachWs(server: http.Server, path: string) {
 
 export function getWss() {
   return wss;
+}
+
+export function getEventsPath() {
+  return eventsPath;
 }

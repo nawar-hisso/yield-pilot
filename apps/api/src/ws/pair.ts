@@ -34,8 +34,16 @@ function cleanupExpired(): void {
   }
 }
 
-export function attachPairWs(server: http.Server, path: string): WebSocketServer {
-  const wss = new WebSocketServer({ server, path });
+let _pairPath = "/ws/pair";
+let _pairWss: WebSocketServer | null = null;
+
+export function getPairWss() { return _pairWss; }
+export function getPairPath() { return _pairPath; }
+
+export function attachPairWs(_server: http.Server, path: string): WebSocketServer {
+  _pairPath = path;
+  const wss = new WebSocketServer({ noServer: true });
+  _pairWss = wss;
 
   const sweeper = setInterval(cleanupExpired, 60_000);
   wss.on("close", () => clearInterval(sweeper));
