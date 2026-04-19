@@ -1,6 +1,7 @@
 # YieldPilot subgraph manifest.
-# Contract address + start block are populated by `` after
-# Hardhat Ignition runs on each chain.
+# Contract address + start block are populated by the post-deploy script
+# (`packages/contracts/scripts/post-deploy.ts`) after Hardhat Ignition runs
+# on each chain.
 
 specVersion: 1.0.0
 description: YieldPilot — ERC-4626 vault events

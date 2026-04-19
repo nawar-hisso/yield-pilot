@@ -1,6 +1,6 @@
 # YieldPilot — Architecture
 
-Canonical design document for the YieldPilot monorepo. Derived from `docs/PRD.md` (verbatim intent) and `` (locked choices). All builders follow this during ``.
+Canonical design document for the YieldPilot monorepo. Derived from `docs/PRD.md` (verbatim intent). 
 
 ---
 
@@ -156,6 +156,6 @@ Cache keys respect `inputs` globs; artifacts (`artifacts/**`, `dist/**`, `.next/
 
 ## 9. Risks & Open Questions
 
-1. **Wallet provider override** — User selected Web3Auth; PRD wrote Reown/WalletConnect. If community deck/demo requires WalletConnect, we'd need to swap `Web3Provider.tsx` . Decision is locked for v1.
+1. **Wallet provider override** — User selected Web3Auth; PRD wrote Reown/WalletConnect. If community deck/demo requires WalletConnect, we'd need to swap `Web3Provider.tsx`. Decision is locked for v1.
 2. **Chainlink feeds on testnet** — Sepolia has decent feed coverage; Base Sepolia is sparser. Need to confirm USDC/USD feed availability on both chains; fall back to a mock `PriceConsumer` if a feed is missing.
 4. **Graph tier limitations** — Subgraph Studio free tier imposes query-rate caps; for a portfolio demo this is fine, but any live-traffic scenario would need The Graph Network (hosted service) or a self-hosted Graph Node (already present in `docker-compose.yml`).

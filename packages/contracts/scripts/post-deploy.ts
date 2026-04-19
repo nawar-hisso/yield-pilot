@@ -10,7 +10,7 @@ import path from "node:path";
  *   - (optional) EntryPoint.depositTo(Paymaster) + addStake — only on real chains.
  *
  * Reads deployed addresses from ignition/deployments/chain-<id>/deployed_addresses.json.
- * Writes a short summary to deployments/<network>.json for downstream skills.
+ * Writes a short summary to deployments/<network>.json.
  */
 
 const HH_ACCT_1 = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"; // matches apps/api PAYMASTER_SIGNER_PRIVATE_KEY in local dev
