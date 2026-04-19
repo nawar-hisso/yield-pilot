@@ -37,8 +37,8 @@ function cleanupExpired(): void {
     if (now - s.createdAt > TTL_MS) {
       if (s.hostCloseTimer) clearTimeout(s.hostCloseTimer);
       if (s.guestCloseTimer) clearTimeout(s.guestCloseTimer);
-      try { s.host?.close(4408, "expired"); } catch {}
-      try { s.guest?.close(4408, "expired"); } catch {}
+      try { s.host?.close(4408, "expired"); } catch { /* socket already gone */ }
+      try { s.guest?.close(4408, "expired"); } catch { /* socket already gone */ }
       sessions.delete(nonce);
     }
   }
@@ -108,8 +108,8 @@ export function attachPairWs(_server: http.Server, path: string): WebSocketServe
         ws.send(JSON.stringify({ type: "pair:joined", role, peerReady: Boolean(session.host && session.guest) }));
         if (session.host && session.guest) {
           const payload = JSON.stringify({ type: "pair:ready" });
-          try { session.host.send(payload); } catch {}
-          try { session.guest.send(payload); } catch {}
+          try { session.host.send(payload); } catch { /* peer closed mid-send */ }
+          try { session.guest.send(payload); } catch { /* peer closed mid-send */ }
         }
         return;
       }
@@ -144,7 +144,7 @@ export function attachPairWs(_server: http.Server, path: string): WebSocketServe
         const stillClosed = closedRole === "host" ? !s.host : !s.guest;
         if (!stillClosed) return;
         const peer = closedRole === "host" ? s.guest : s.host;
-        try { peer?.send(JSON.stringify({ type: "pair:closed", reason: "peer disconnected" })); } catch {}
+        try { peer?.send(JSON.stringify({ type: "pair:closed", reason: "peer disconnected" })); } catch { /* peer closed mid-send */ }
         if (!s.host && !s.guest) sessions.delete(myNonce!);
       }, GRACE_MS);
 

@@ -61,8 +61,7 @@ describe("YieldPilotAccountFactory", function () {
     const { factory } = await deployFactory();
     await factory.createAccount(CRED_A, X1, Y1, NICK_A, 0);
     const addr = await factory.computeAddress(X1, Y1, 0);
-    const Account = await ethers.getContractFactory("YieldPilotAccount");
-    const account = Account.attach(addr);
+    const account = await ethers.getContractAt("YieldPilotAccount", addr);
     expect(await account.pubKeyX()).to.equal(X1);
     expect(await account.pubKeyY()).to.equal(Y1);
     expect(await account.primaryCredId()).to.equal(CRED_A);

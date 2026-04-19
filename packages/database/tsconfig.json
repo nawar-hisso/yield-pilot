@@ -1,4 +1,4 @@
 {
-  "extends": "@yield-pilot/tsconfig/base.json",
+  "extends": "@yield-pilot/tsconfig/node.json",
   "include": ["src/**/*"]
 }

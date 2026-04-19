@@ -16,7 +16,7 @@ export default buildModule("YieldPilotModule", (m) => {
   // `initialVerifier` is a parameter so we can set a temporary value at deploy
   // time. The real backend signer is configured via Paymaster.setVerifier(...)
   // from the post-deploy wiring script once apps/api is running.
-  const initialVerifier = m.getParameter<string>("initialVerifier", deployer);
+  const initialVerifier = m.getParameter("initialVerifier", deployer);
 
   // --- Tokens + strategy ---
   const usdc = m.contract("MockUSDC", [deployer]);

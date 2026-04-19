@@ -34,8 +34,7 @@ async function main() {
   console.log(`[post-deploy] deployer=${deployer.address}`);
   console.log(`[post-deploy] Paymaster=${paymaster}  YieldVault=${vault}`);
 
-  const Paymaster = await ethers.getContractFactory("Paymaster");
-  const paymasterContract = Paymaster.attach(paymaster);
+  const paymasterContract = await ethers.getContractAt("Paymaster", paymaster, deployer);
 
   // For localhost we align the verifier to apps/api's default signer
   // (Hardhat account #1). On real chains the user overrides via env.

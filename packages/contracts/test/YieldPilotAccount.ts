@@ -28,7 +28,7 @@ describe("YieldPilotAccount", function () {
 
     await factory.createAccount(CRED_A, X1, Y1, NICK_A, 0);
     const accountAddress = await factory.computeAddress(X1, Y1, 0);
-    const account = Account.attach(accountAddress);
+    const account = await ethers.getContractAt("YieldPilotAccount", accountAddress);
 
     return { account, factory, impl, deployer, stranger, recipient, accountAddress };
   }

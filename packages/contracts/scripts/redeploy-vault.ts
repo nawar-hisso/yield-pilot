@@ -50,8 +50,7 @@ async function main() {
 
   // Wire the new vault into the existing Paymaster's target allow-list so
   // passkey deposit/withdraw UserOps targeting it are sponsored.
-  const Paymaster = await ethers.getContractFactory("Paymaster");
-  const pm = Paymaster.attach(paymaster);
+  const pm = await ethers.getContractAt("Paymaster", paymaster, deployer);
   const alreadyAllowed: boolean = await pm.allowedTargets(vaultAddr);
   if (!alreadyAllowed) {
     const tx = await pm.connect(deployer).setTarget(vaultAddr, true);

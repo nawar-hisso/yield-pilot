@@ -16,7 +16,8 @@
     "isolatedModules": true,
     "declaration": true,
     "declarationMap": true,
-    "sourceMap": true
+    "sourceMap": true,
+    "types": []
   },
   "exclude": ["node_modules", "dist", "build", ".next", ".turbo"]
 }

@@ -20,8 +20,7 @@ const ENTRYPOINT_ABI = [
 
 async function main() {
   const [deployer] = await ethers.getSigners();
-  const Paymaster = await ethers.getContractFactory("Paymaster");
-  const pm = Paymaster.attach(PAYMASTER);
+  const pm = await ethers.getContractAt("Paymaster", PAYMASTER, deployer);
 
   // 1. Factory allow-list
   const isAllowed: boolean = await pm.allowedFactories(FACTORY);

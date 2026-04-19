@@ -14,8 +14,7 @@ const APPS_API_VERIFIER = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8";
 
 async function main() {
   const [deployer] = await ethers.getSigners();
-  const Paymaster = await ethers.getContractFactory("Paymaster");
-  const pm = Paymaster.attach(PAYMASTER);
+  const pm = await ethers.getContractAt("Paymaster", PAYMASTER, deployer);
 
   const current: string = await pm.verifier();
   if (current.toLowerCase() === APPS_API_VERIFIER.toLowerCase()) {
