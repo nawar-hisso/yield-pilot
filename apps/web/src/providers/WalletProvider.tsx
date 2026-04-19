@@ -23,6 +23,10 @@ export interface WalletContextValue {
   chooserOpen: boolean;
   chooseEoa: () => void;
   choosePasskey: () => Promise<void>;
+  /** Flip activePath to "passkey" without running WebAuthn register. Used by
+   *  the pair flow: the paired passkey is already stored, we just need the
+   *  wallet facade to reflect it. */
+  activatePasskey: () => void;
   disconnect: () => Promise<void>;
   /** Whether a passkey smart-account record exists on-device. Used by UI to
    *  switch the chooser label from "Create" → "Continue with" and to gate the
@@ -85,6 +89,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   }, [passkey]);
 
+  const activatePasskey = useCallback(() => {
+    setActivePath("passkey");
+    setChooserOpen(false);
+  }, []);
+
   const disconnect = useCallback(async () => {
     // IMPORTANT: Disconnecting ends the SESSION, not the account.
     //   - EOA: wagmi disconnectAsync() just drops the provider connection.
@@ -113,6 +122,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       chooserOpen,
       chooseEoa,
       choosePasskey,
+      activatePasskey,
       disconnect,
       hasPasskey: !!passkey.passkey,
       forgetPasskey: passkey.forget,
@@ -133,6 +143,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     chooserOpen,
     chooseEoa,
     choosePasskey,
+    activatePasskey,
     disconnect,
   ]);
 

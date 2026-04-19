@@ -78,12 +78,16 @@ export function JoinDeviceDialog({
       // Pin the record to Browser A's account (NOT Browser B's counterfactual).
       const pinned = { ...record, accountAddress: parsed.accountAddress };
       await savePasskey(pinned);
-      // Push into the provider's in-memory state BEFORE choosePasskey —
-      // otherwise choosePasskey sees passkey=null and tries to re-register.
+      // Push into the provider's in-memory state, then flip activePath WITHOUT
+      // going through choosePasskey (which would see stale closure state and
+      // fire a background WebAuthn register prompt).
       passkeyCtx.adopt(pinned);
-      await wallet.choosePasskey();
+      wallet.activatePasskey();
       setStatus("paired");
       toast.success("Linked to existing account");
+      // Auto-close the dialog shortly after so the user sees the success
+      // state but isn't left staring at a modal on a freshly-connected session.
+      setTimeout(() => onOpenChange(false), 1_500);
     };
 
     // Chain poll fallback — the WS relay is fast-path, but Browser A's
@@ -148,7 +152,7 @@ export function JoinDeviceDialog({
     ws.onerror = () => {
       // Don't error out — chain poll is the backup.
     };
-  }, [raw, nickname, wallet, passkeyCtx]);
+  }, [raw, nickname, wallet, passkeyCtx, onOpenChange]);
 
   useEffect(() => {
     if (!open && wsRef.current) {
