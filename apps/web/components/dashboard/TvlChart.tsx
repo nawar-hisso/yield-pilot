@@ -94,7 +94,7 @@ export function TvlChart() {
         {live ? (
           <div className="h-40 w-full font-mono text-[11px]">
             <ResponsiveContainer>
-              <AreaChart data={chart} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+              <AreaChart data={chart} margin={{ top: 8, right: 16, bottom: 8, left: 8 }}>
                 <defs>
                   <linearGradient id="tvlFill" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="hsl(var(--accent))" stopOpacity={0.55} />
@@ -116,7 +116,7 @@ export function TvlChart() {
                   tickLine={false}
                   axisLine={false}
                   tickFormatter={(v: number) => `$${(v / 1000).toFixed(1)}k`}
-                  width={40}
+                  width={56}
                 />
                 <Tooltip
                   contentStyle={{

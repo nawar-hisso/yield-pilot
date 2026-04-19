@@ -146,7 +146,7 @@ export function ApyChart() {
         {live ? (
           <div className="h-40 w-full font-mono text-[11px]">
             <ResponsiveContainer>
-              <LineChart data={chart} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+              <LineChart data={chart} margin={{ top: 8, right: 16, bottom: 8, left: 8 }}>
                 <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" vertical={false} />
                 <XAxis
                   dataKey="label"
@@ -161,8 +161,8 @@ export function ApyChart() {
                   fontSize={10}
                   tickLine={false}
                   axisLine={false}
-                  tickFormatter={(v: number) => `${v.toFixed(1)}%`}
-                  width={40}
+                  tickFormatter={(v: number) => `${v.toFixed(0)}%`}
+                  width={64}
                 />
                 <Tooltip
                   contentStyle={{
