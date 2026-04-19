@@ -228,6 +228,28 @@ export function DashboardOverview() {
               })
             )}
           </h1>
+          {wallet.isConnected && flows && flows.costBasis > 0n ? (
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 pt-1 text-xs">
+              <span className="font-medium uppercase tracking-[0.08em] text-[color:var(--color-text-3)]">
+                Cost basis
+              </span>
+              <span className="font-mono tabular-nums text-sm text-[color:var(--color-text-1)]">
+                ${Number(formatUnits(flows.costBasis, USDC_DECIMALS)).toLocaleString(undefined, {
+                  maximumFractionDigits: 2,
+                })}
+                <span className="text-[color:var(--color-text-3)]"> deposited</span>
+              </span>
+              {pnl ? (
+                <span
+                  className={`font-mono tabular-nums ${pnl.absUsd >= 0 ? "text-success" : "text-destructive"}`}
+                >
+                  {pnl.absUsd >= 0 ? "+" : "−"}$
+                  {Math.abs(pnl.absUsd).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                  <span className="text-[color:var(--color-text-3)]"> yield</span>
+                </span>
+              ) : null}
+            </div>
+          ) : null}
           <p className="text-sm text-muted-foreground max-w-lg">
             {wallet.isConnected
               ? "Your position updates in real-time from on-chain events. Use the vault to top up or withdraw."

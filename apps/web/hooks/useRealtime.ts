@@ -5,6 +5,7 @@ import type { RealtimePayload } from "@yield-pilot/shared";
 
 /**
  * Subscribes to the apps/api WebSocket channel. Tracks the latest real
+ * VaultEvent payload in `last`, and surfaces liveness via
  * `connected` + `lastPingAt`. The `ping` heartbeat (emitted every 30s by the
  * server) is consumed but never surfaced as activity — it's just a
  * keep-alive, not a user-visible event.
