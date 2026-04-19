@@ -39,6 +39,7 @@ off-chain, and UI — with no scaffolding shortcuts:
 - Pimlico bundler + `permissionless.js` UserOp construction
 - The Graph subgraph with a custom `SharePriceSnapshot` entity for a
   share-price-derived APY
+- WebSocket fan-out for sub-second live-event streaming to the frontend
 - Next.js 14 App Router · Tailwind · shadcn/ui · wagmi v2 · viem · Recharts
 - Turborepo + pnpm workspaces + Prisma + Postgres
 
@@ -74,19 +75,22 @@ off-chain, and UI — with no scaffolding shortcuts:
 │  apps/api    │  │ apps/subgraph  │  │ Sepolia / Base Sepolia │
 │ Prisma + PG  │  │ schema.graphql │  │                        │
 │ WS server    │  │ mappings.ts    │  │  + EntryPoint v0.7     │
-└──────┬───────┘          │indexes    └──────────▲─────────────┘
-       │   ┌──────────────────────────────────────────────────┐
-       │   │ packages/contracts  (Hardhat + Ignition)         │
-       └──▶│ YieldVault · MockAave · MockUSDC · Paymaster     │
-           │ YieldPilotAccount · YieldPilotAccountFactory     │
-           └──────────────────────────────────────────────────┘
+│ Paymaster    │  └───────┬────────┘  │  + Pimlico bundler     │
+│ sponsor svc  │          │indexes    └──────────▲─────────────┘
+└──────┬───────┘          ▼                      │
+       │          ┌──────────────────────────────────────────────────┐
+       │          │ packages/contracts  (Hardhat + Ignition)         │
+       └─────────▶│ YieldVault · MockAave · MockUSDC · Paymaster     │
+                  │ YieldPilotAccount · YieldPilotAccountFactory     │
+                  └──────────────────────────────────────────────────┘
 ```
 
 Workspace layout:
 
 ```
 apps/
-  api/        → Express + TypeScript backend (Fly / Railway / Render)
+  web/        → Next.js 14 frontend
+  api/        → Express + TypeScript backend
   subgraph/   → The Graph subgraph (Subgraph Studio)
 
 packages/
@@ -104,6 +108,7 @@ deployments/           → Ignition deploy snapshots
 | Layer | Stack |
 |---|---|
 | **Frontend** | Next.js 14 · TypeScript (strict) · Tailwind · shadcn/ui · wagmi v2 · viem · Reown AppKit · `permissionless.js` · `@simplewebauthn/browser` · `@noble/curves` · Recharts · Framer Motion · GSAP · React Three Fiber |
+| **Backend** | Express · TypeScript · Prisma · Postgres 16 · `ws` · viem (paymaster signing) |
 | **Contracts** | Solidity 0.8.24 (EVM Cancun) · Hardhat · Hardhat Ignition · OpenZeppelin · `@account-abstraction/contracts` v0.7 · RIP-7212 P-256 precompile |
 | **Indexing** | The Graph (Subgraph Studio) · AssemblyScript mappings · `SharePriceSnapshot` entity for APY derivation |
 | **Infra** | Turborepo · pnpm workspaces · Docker (Postgres) |
@@ -119,7 +124,7 @@ deployments/           → Ignition deploy snapshots
 - Free accounts at:
   - [cloud.reown.com](https://cloud.reown.com) — AppKit project ID
   - [dashboard.pimlico.io](https://dashboard.pimlico.io) — bundler API key
-  - [thegraph.com/studio](https://thegraph.com/studio) — subgraph slug + deploy key
+  - [thegraph.com/studio](https://thegraph.com/studio) — subgraph slug + deploy key *(only if you redeploy your own subgraph)*
   - [etherscan.io/apis](https://etherscan.io/apis) — verification key
 
 ## Quick start
@@ -355,7 +360,7 @@ apps/web/
 apps/api/
   src/routes/paymaster.ts    # POST /api/paymaster/sponsor
   src/services/              # paymaster-signer + paymaster-policy
-  src/ws.ts                  # WS server for realtime events
+  src/ws/                    # WS server for realtime events + device pairing
 
 apps/subgraph/
   schema.graphql             # VaultEvent + SharePriceSnapshot entities

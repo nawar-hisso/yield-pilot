@@ -114,8 +114,8 @@ export function DashboardOverview() {
     return { absUsd, pct };
   }, [flows, position]);
 
-  // priority; fall back to the subgraph-polled activity feed. Always show the
-  // most recent at the top.
+  // Merge: real-time WS events take priority; fall back to the
+  // subgraph-polled activity feed. Always show the most recent at the top.
   const feed = useMemo<VaultActivityEvent[]>(() => {
     const subgraphFeed = activity ?? [];
     if (last && last.type === "vault.event") {

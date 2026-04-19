@@ -42,10 +42,3 @@ model Notification {
   @@index([createdAt])
 }
 
-model ProcessedEvent {
-  key         String   @id
-  chainId     Int
-  processedAt DateTime @default(now())
-
-  @@index([chainId, processedAt])
-}

@@ -211,8 +211,7 @@ export async function fetchDailyTvl(
 
 /**
  * Fetch the most recent vault deposits and withdrawals, merged into a single
- * descending timeline. Intended as a stopgap for the Live Activity feed until
- * so there's no reason to leave the feed empty.
+ * descending timeline. Drives the Live Activity feed alongside the WS stream.
  */
 export async function fetchRecentActivity(
   limit = 10,
