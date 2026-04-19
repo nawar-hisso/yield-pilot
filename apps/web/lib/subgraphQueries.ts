@@ -73,11 +73,13 @@ export async function fetchDailyTvl(
       byDay.set(dayBucket, running);
     }
 
-    // Walk forward from the first event through today, carrying the last
-    // known TVL so empty days keep the prior value (stepped chart).
+    // Walk forward from the day BEFORE the first event through today, carrying
+    // the last known TVL so empty days keep the prior value (stepped chart).
+    // The seed-zero point ensures the chart always has ≥2 points, even when
+    // everything landed on a single UTC day.
     const firstDay = Math.floor(deltas[0]!.ts / ONE_DAY) * ONE_DAY;
     const lastDay = Math.floor(Date.now() / 1000 / ONE_DAY) * ONE_DAY;
-    const out: DailyTvlPoint[] = [];
+    const out: DailyTvlPoint[] = [{ day: firstDay - ONE_DAY, tvlUsdc: 0n }];
     let last = 0n;
     for (let d = firstDay; d <= lastDay; d += ONE_DAY) {
       const v = byDay.get(d);
