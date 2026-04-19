@@ -21,6 +21,11 @@ export interface PasskeyAccountContext {
   register: () => Promise<PasskeyRecord>;
   /** Wipe the stored passkey — logs the user out of the smart-account path. */
   forget: () => Promise<void>;
+  /** Push a record into provider state without running WebAuthn registration.
+   *  Used by the pair flow: JoinDeviceDialog already saved the paired passkey
+   *  to IndexedDB, and we need the provider to reflect it immediately so
+   *  choosePasskey() doesn't try to re-register. */
+  adopt: (record: PasskeyRecord) => void;
 }
 
 const Ctx = createContext<PasskeyAccountContext>({
@@ -31,6 +36,7 @@ const Ctx = createContext<PasskeyAccountContext>({
     throw new Error("PasskeyAccountProvider not mounted");
   },
   forget: async () => {},
+  adopt: () => {},
 });
 
 function chainId(): number {
@@ -78,8 +84,13 @@ export function PasskeyAccountProvider({ children }: { children: ReactNode }) {
     setAddress(null);
   }, []);
 
+  const adopt = useCallback((record: PasskeyRecord) => {
+    setPasskey(record);
+    setAddress(deriveAddress(record));
+  }, []);
+
   return (
-    <Ctx.Provider value={{ passkey, address, isLoading, register, forget }}>{children}</Ctx.Provider>
+    <Ctx.Provider value={{ passkey, address, isLoading, register, forget, adopt }}>{children}</Ctx.Provider>
   );
 }
 

@@ -8,6 +8,7 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { registerPasskey, savePasskey } from "../../lib/passkey";
 import { useWallet } from "../../hooks/useWallet";
+import { usePasskeyAccount } from "../../src/providers/PasskeyAccountProvider";
 import { publicClient } from "../../lib/viem";
 import { YieldPilotAccountAbi } from "@yield-pilot/contracts-abi";
 import type { Address, Hex } from "viem";
@@ -45,6 +46,7 @@ export function JoinDeviceDialog({
   initialLink?: string;
 }) {
   const wallet = useWallet();
+  const passkeyCtx = usePasskeyAccount();
   const [raw, setRaw] = useState(initialLink ?? "");
   const [nickname, setNickname] = useState("");
   const [status, setStatus] = useState<"idle" | "registering" | "waiting" | "paired" | "error">("idle");
@@ -73,9 +75,12 @@ export function JoinDeviceDialog({
     setStatus("waiting");
 
     const finalize = async () => {
-      // Pin the record to Browser A's account (NOT Browser B's counterfactual)
-      // and flip the wallet facade to the passkey path.
-      await savePasskey({ ...record, accountAddress: parsed.accountAddress });
+      // Pin the record to Browser A's account (NOT Browser B's counterfactual).
+      const pinned = { ...record, accountAddress: parsed.accountAddress };
+      await savePasskey(pinned);
+      // Push into the provider's in-memory state BEFORE choosePasskey —
+      // otherwise choosePasskey sees passkey=null and tries to re-register.
+      passkeyCtx.adopt(pinned);
       await wallet.choosePasskey();
       setStatus("paired");
       toast.success("Linked to existing account");
@@ -143,7 +148,7 @@ export function JoinDeviceDialog({
     ws.onerror = () => {
       // Don't error out — chain poll is the backup.
     };
-  }, [raw, nickname, wallet]);
+  }, [raw, nickname, wallet, passkeyCtx]);
 
   useEffect(() => {
     if (!open && wsRef.current) {
