@@ -3,11 +3,12 @@
 import { useCallback, useState } from "react";
 import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { MockUsdcAbi, YieldVaultAbi } from "@yield-pilot/contracts-abi";
-import { encodeFunctionData, type Address, type Hex } from "viem";
+import { encodeFunctionData, maxUint256, type Address, type Hex } from "viem";
 import { contractsFor } from "../lib/contracts";
+import { publicClient } from "../lib/viem";
 import { useWallet } from "./useWallet";
 import { useTxState } from "./useTxState";
-import { executeBatchCalldata, stringToBytes32 } from "../lib/account";
+import { executeCalldata, stringToBytes32 } from "../lib/account";
 import { buildAndSendUserOp, waitForUserOpReceipt } from "../lib/userop";
 import { usePasskeyAccount } from "../src/providers/PasskeyAccountProvider";
 
@@ -66,21 +67,25 @@ export function useDeposit() {
           throw new Error("Passkey account not ready");
         }
 
-        const approveData = encodeFunctionData({
+        // The paymaster only sponsors single `execute()` calls (not
+        // `executeBatch`). When allowance is insufficient we run TWO UserOps
+        // sequentially: approve-max then deposit. First deposit: 2 Touch IDs.
+        // Subsequent deposits reuse the max allowance → 1 Touch ID.
+        const initCodeArgs = {
+          factory: accountFactory as Address,
+          credIdHash: passkey.passkey.credIdHash as Hex,
+          pubKeyX: passkey.passkey.pubKeyX as Hex,
+          pubKeyY: passkey.passkey.pubKeyY as Hex,
+          nickname: stringToBytes32(passkey.passkey.nickname),
+          salt: 0n,
+        };
+
+        const currentAllowance = (await publicClient.readContract({
+          address: usdc as Address,
           abi: MockUsdcAbi,
-          functionName: "approve",
-          args: [vault as Address, assets],
-        });
-        const depositData = encodeFunctionData({
-          abi: YieldVaultAbi,
-          functionName: "deposit",
-          args: [assets, passkey.address],
-        });
-        const callData = executeBatchCalldata(
-          [usdc as Address, vault as Address],
-          [0n, 0n],
-          [approveData, depositData],
-        );
+          functionName: "allowance",
+          args: [passkey.address as Address, vault as Address],
+        })) as bigint;
 
         setPasskeyState({
           signing: true,
@@ -91,24 +96,41 @@ export function useDeposit() {
         });
 
         try {
-          const userOpHash = await buildAndSendUserOp({
+          if (currentAllowance < assets) {
+            const approveData = encodeFunctionData({
+              abi: MockUsdcAbi,
+              functionName: "approve",
+              args: [vault as Address, maxUint256],
+            });
+            const approveCallData = executeCalldata(usdc as Address, 0n, approveData);
+            const approveUserOpHash = await buildAndSendUserOp({
+              sender: passkey.address as Address,
+              callData: approveCallData,
+              chainId,
+              paymaster: paymaster as Address,
+              credentialId: passkey.passkey.credentialId,
+              initCodeArgs,
+            });
+            await waitForUserOpReceipt(approveUserOpHash, chainId);
+          }
+
+          const depositData = encodeFunctionData({
+            abi: YieldVaultAbi,
+            functionName: "deposit",
+            args: [assets, passkey.address],
+          });
+          const depositCallData = executeCalldata(vault as Address, 0n, depositData);
+          const depositUserOpHash = await buildAndSendUserOp({
             sender: passkey.address as Address,
-            callData,
+            callData: depositCallData,
             chainId,
             paymaster: paymaster as Address,
             credentialId: passkey.passkey.credentialId,
-            initCodeArgs: {
-              factory: accountFactory as Address,
-              credIdHash: passkey.passkey.credIdHash as Hex,
-              pubKeyX: passkey.passkey.pubKeyX as Hex,
-              pubKeyY: passkey.passkey.pubKeyY as Hex,
-              nickname: stringToBytes32(passkey.passkey.nickname),
-              salt: 0n,
-            },
+            initCodeArgs,
           });
 
-          setPasskeyState((s) => ({ ...s, signing: false, broadcasting: true, txHash: userOpHash }));
-          const receipt = await waitForUserOpReceipt(userOpHash, chainId);
+          setPasskeyState((s) => ({ ...s, signing: false, broadcasting: true, txHash: depositUserOpHash }));
+          const receipt = await waitForUserOpReceipt(depositUserOpHash, chainId);
           setPasskeyState((s) => ({
             ...s,
             broadcasting: false,
