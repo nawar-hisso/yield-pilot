@@ -35,7 +35,12 @@ export function DepositForm() {
     }
   }, [raw]);
 
-  const needsApproval = parsed !== null && (allowance ?? 0n) < parsed;
+  // Passkey deposits batch approve + deposit atomically inside a single UserOp
+  // (executeBatch), so the standalone approve step is never needed — and would
+  // fail anyway, since useApprove is wagmi-backed and there's no EOA connector
+  // on the passkey path.
+  const isPasskey = wallet.walletType === "passkey";
+  const needsApproval = !isPasskey && parsed !== null && (allowance ?? 0n) < parsed;
   const exceedsBalance = parsed !== null && balance !== undefined && parsed > balance;
   const busy = approving || approveConfirming || depositing || depositConfirming;
 

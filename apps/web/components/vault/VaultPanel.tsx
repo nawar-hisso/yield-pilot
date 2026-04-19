@@ -35,11 +35,15 @@ function VaultPanelBody() {
         </CardContent>
       </Card>
 
-      {wallet.walletType === "passkey" ? (
+      {wallet.walletType === "passkey" && wallet.chainId === 31337 ? (
         <p className="text-xs text-muted-foreground text-center">
           Gasless deposits via the passkey smart account are unsupported on localhost
           (Pimlico doesn&apos;t serve chainId 31337). Switch to an EOA wallet to test writes,
           or redeploy to Sepolia.
+        </p>
+      ) : wallet.walletType === "passkey" ? (
+        <p className="text-xs text-muted-foreground text-center">
+          Gasless deposit — approve + deposit batch in a single UserOp, sponsored by the paymaster.
         </p>
       ) : null}
     </section>
