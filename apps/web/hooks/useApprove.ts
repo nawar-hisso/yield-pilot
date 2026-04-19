@@ -5,16 +5,22 @@ import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { MockUsdcAbi } from "@yield-pilot/contracts-abi";
 import { type Address, type Hex } from "viem";
 import { contractsFor } from "../lib/contracts";
+import { publicClient } from "../lib/viem";
 import { useTxState } from "./useTxState";
 
-/** USDC → YieldVault approval. Caller passes the exact allowance amount. */
+/**
+ * USDC → YieldVault approval. `approve()` waits for the transaction to be
+ * mined before resolving — callers should be able to read the updated
+ * allowance immediately afterwards without racing the next deposit call.
+ */
 export function useApprove() {
   const chainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? "11155111");
   const { usdc, vault } = contractsFor(chainId);
   const { writeContractAsync, isPending } = useWriteContract();
   const [txHash, setTxHash] = useState<Hex | undefined>();
+  const [awaitingReceipt, setAwaitingReceipt] = useState(false);
   const {
-    isLoading: isConfirming,
+    isLoading: receiptLoading,
     isSuccess,
     isError: receiptError,
   } = useWaitForTransactionReceipt({ hash: txHash });
@@ -29,10 +35,21 @@ export function useApprove() {
         args: [vault as Address, amount],
       });
       setTxHash(hash);
-      return hash;
+      setAwaitingReceipt(true);
+      try {
+        const receipt = await publicClient.waitForTransactionReceipt({ hash });
+        if (receipt.status !== "success") {
+          throw new Error("Approval transaction reverted on-chain");
+        }
+        return hash;
+      } finally {
+        setAwaitingReceipt(false);
+      }
     },
     [usdc, vault, writeContractAsync],
   );
+
+  const isConfirming = receiptLoading || awaitingReceipt;
 
   const txState = useTxState({
     isSigning: isPending,
