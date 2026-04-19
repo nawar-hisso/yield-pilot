@@ -215,16 +215,24 @@ PAYMASTER_DAILY_PER_SENDER_CAP_WEI=10000000000000000 # 0.01 ETH / day per sender
 # querying my Sepolia deployment. To index your own vault, see the
 # "Deploying the subgraph" section.
 NEXT_PUBLIC_SUBGRAPH_URL_SEPOLIA=https://api.studio.thegraph.com/query/1748410/yield-pilot/v0.0.4
+
+# === Canonical Sepolia contract addresses (public on-chain) ===
+# Already deployed + verified. Clone + cp .env.example .env.local and the
+# dashboard points at my live deployment out-of-the-box.
+NEXT_PUBLIC_VAULT_ADDRESS_SEPOLIA=0x62B63E6E3e8b265D7A4A807B50db7f9069E9Dd2B
+NEXT_PUBLIC_MOCK_USDC_ADDRESS_SEPOLIA=0x2a046e7e9f0a0ce0a466F357adE6ccf171977BDc
+NEXT_PUBLIC_MOCK_AAVE_ADDRESS_SEPOLIA=0xaBeC4198F517E25aa7375702eb56aF13e5478e7f
+NEXT_PUBLIC_PAYMASTER_CONTRACT_ADDRESS_SEPOLIA=0xa77447088b961861626c79D00d62e2024E7190B2
+NEXT_PUBLIC_ACCOUNT_FACTORY_ADDRESS_SEPOLIA=0xe38f4049F7C18DE4fC9C48eb102134cC42027AC9
+NEXT_PUBLIC_ACCOUNT_IMPL_ADDRESS=0x4B99773e756bCA1DF5ff9696014db0E25a90916B
+
+# Backend-only mirrors (no NEXT_PUBLIC_ prefix — read by apps/api)
+VAULT_ADDRESS_SEPOLIA=0x62B63E6E3e8b265D7A4A807B50db7f9069E9Dd2B
+PAYMASTER_CONTRACT_ADDRESS_SEPOLIA=0xa77447088b961861626c79D00d62e2024E7190B2
+ACCOUNT_FACTORY_ADDRESS_SEPOLIA=0xe38f4049F7C18DE4fC9C48eb102134cC42027AC9
 ```
 
-**Deployed contract addresses** — every `*_ADDRESS*` key is a public
-on-chain address, inherently shareable. You fill them in yourself after
-running `pnpm -F @yield-pilot/contracts deploy:sepolia` (or paste the
-addresses from my live Sepolia deployment if I've added them to a
-`deployments/` snapshot):
-
-- Frontend: `NEXT_PUBLIC_VAULT_ADDRESS*`, `NEXT_PUBLIC_MOCK_USDC_ADDRESS*`, `NEXT_PUBLIC_MOCK_AAVE_ADDRESS*`, `NEXT_PUBLIC_PAYMASTER_CONTRACT_ADDRESS*`, `NEXT_PUBLIC_ACCOUNT_FACTORY_ADDRESS*`, `NEXT_PUBLIC_ACCOUNT_IMPL_ADDRESS*`
-- Backend mirrors (same values, no `NEXT_PUBLIC_` prefix): `VAULT_ADDRESS_*`, `PAYMASTER_CONTRACT_ADDRESS_*`, `ACCOUNT_FACTORY_ADDRESS_*`
+Every address above is verified on Etherscan → [explore on Sepolia](https://sepolia.etherscan.io/address/0x62B63E6E3e8b265D7A4A807B50db7f9069E9Dd2B).
 
 ### ⚠️ Account-scoped — fill with **your own** values
 
