@@ -302,23 +302,100 @@ export async function submitUserOp(userOp: PackedUserOperation, chainId: number)
     jsonrpc: "2.0",
     method: "eth_sendUserOperation",
     id: Date.now(),
-    params: [
-      {
-        sender: userOp.sender,
-        nonce: toHex(userOp.nonce),
-        initCode: userOp.initCode,
-        callData: userOp.callData,
-        accountGasLimits: userOp.accountGasLimits,
-        preVerificationGas: toHex(userOp.preVerificationGas),
-        gasFees: userOp.gasFees,
-        paymasterAndData: userOp.paymasterAndData,
-        signature: userOp.signature,
-      },
-      ENTRY_POINT_V07,
-    ],
+    params: [toUnpackedRpcForm(userOp), ENTRY_POINT_V07],
   };
-  const json = await bundlerRpc<Hex>(chainId, rpc);
-  return json;
+  return bundlerRpc<Hex>(chainId, rpc);
+}
+
+/**
+ * Convert our internal packed v0.7 UserOperation into the **unpacked** JSON
+ * shape bundlers accept over RPC (eth_sendUserOperation + eth_estimateUserOperationGas).
+ *
+ * Packing is a v0.7 calldata optimisation for the EntryPoint struct; the
+ * bundler repacks it itself before submitting on-chain. The RPC schema is the
+ * original v0.6-style separate fields, with v0.7 adding split factory/paymaster:
+ *
+ *   accountGasLimits  → verificationGasLimit (first 16B) + callGasLimit (last 16B)
+ *   gasFees           → maxPriorityFeePerGas (first 16B) + maxFeePerGas (last 16B)
+ *   initCode          → factory (first 20B) + factoryData (rest)    — omit if 0x
+ *   paymasterAndData  → paymaster (first 20B) + paymasterVerificationGasLimit (next 16B)
+ *                       + paymasterPostOpGasLimit (next 16B) + paymasterData (rest)
+ *                                                                    — omit if 0x
+ */
+function toUnpackedRpcForm(op: PackedUserOperation): Record<string, unknown> {
+  const { verificationGasLimit, callGasLimit } = unpackBytes32Pair(op.accountGasLimits);
+  const { high: maxPriorityFeePerGas, low: maxFeePerGas } = unpackGasFees(op.gasFees);
+
+  const base: Record<string, unknown> = {
+    sender: op.sender,
+    nonce: toHex(op.nonce),
+    callData: op.callData,
+    callGasLimit: toHex(callGasLimit),
+    verificationGasLimit: toHex(verificationGasLimit),
+    preVerificationGas: toHex(op.preVerificationGas),
+    maxFeePerGas: toHex(maxFeePerGas),
+    maxPriorityFeePerGas: toHex(maxPriorityFeePerGas),
+    signature: op.signature,
+  };
+
+  if (op.initCode && op.initCode !== "0x") {
+    const { factory, factoryData } = splitInitCode(op.initCode);
+    base.factory = factory;
+    base.factoryData = factoryData;
+  }
+
+  if (op.paymasterAndData && op.paymasterAndData !== "0x") {
+    const pm = splitPaymasterAndData(op.paymasterAndData);
+    base.paymaster = pm.paymaster;
+    base.paymasterVerificationGasLimit = toHex(pm.paymasterVerificationGasLimit);
+    base.paymasterPostOpGasLimit = toHex(pm.paymasterPostOpGasLimit);
+    base.paymasterData = pm.paymasterData;
+  }
+
+  return base;
+}
+
+function unpackBytes32Pair(packed: Hex): { verificationGasLimit: bigint; callGasLimit: bigint } {
+  if (packed.length !== 66) throw new Error(`accountGasLimits must be 32 bytes, got ${packed.length}`);
+  const high = BigInt("0x" + packed.slice(2, 34));
+  const low = BigInt("0x" + packed.slice(34));
+  return { verificationGasLimit: high, callGasLimit: low };
+}
+
+function unpackGasFees(packed: Hex): { high: bigint; low: bigint } {
+  if (packed.length !== 66) throw new Error(`gasFees must be 32 bytes, got ${packed.length}`);
+  const high = BigInt("0x" + packed.slice(2, 34));
+  const low = BigInt("0x" + packed.slice(34));
+  return { high, low };
+}
+
+function splitInitCode(initCode: Hex): { factory: Address; factoryData: Hex } {
+  if (initCode.length < 42) throw new Error(`initCode too short: ${initCode.length} hex chars`);
+  const factory = ("0x" + initCode.slice(2, 42)) as Address;
+  const factoryData = ("0x" + initCode.slice(42)) as Hex;
+  return { factory, factoryData };
+}
+
+function splitPaymasterAndData(pmd: Hex): {
+  paymaster: Address;
+  paymasterVerificationGasLimit: bigint;
+  paymasterPostOpGasLimit: bigint;
+  paymasterData: Hex;
+} {
+  // Layout: paymaster(20) | pmVerGas(16) | pmPostOpGas(16) | data(rest)
+  if (pmd.length < 2 + 40 + 32 + 32) {
+    throw new Error(`paymasterAndData too short: ${pmd.length} hex chars`);
+  }
+  const paymaster = ("0x" + pmd.slice(2, 42)) as Address;
+  const pmVerGas = BigInt("0x" + pmd.slice(42, 74));
+  const pmPostGas = BigInt("0x" + pmd.slice(74, 106));
+  const paymasterData = ("0x" + pmd.slice(106)) as Hex;
+  return {
+    paymaster,
+    paymasterVerificationGasLimit: pmVerGas,
+    paymasterPostOpGasLimit: pmPostGas,
+    paymasterData,
+  };
 }
 
 // ───────────────────────── UserOp hashing (v0.7) ─────────────────────────
@@ -380,25 +457,14 @@ async function estimateUserOpGas(
     jsonrpc: "2.0",
     method: "eth_estimateUserOperationGas",
     id: Date.now(),
-    params: [
-      {
-        sender: op.sender,
-        nonce: toHex(op.nonce),
-        initCode: op.initCode,
-        callData: op.callData,
-        accountGasLimits: op.accountGasLimits,
-        preVerificationGas: toHex(op.preVerificationGas),
-        gasFees: op.gasFees,
-        paymasterAndData: op.paymasterAndData,
-        signature: op.signature,
-      },
-      ENTRY_POINT_V07,
-    ],
+    params: [toUnpackedRpcForm(op), ENTRY_POINT_V07],
   };
   const json = await bundlerRpc<{
     preVerificationGas: Hex;
     verificationGasLimit: Hex;
     callGasLimit: Hex;
+    paymasterVerificationGasLimit?: Hex;
+    paymasterPostOpGasLimit?: Hex;
   }>(chainId, rpc);
   return {
     preVerificationGas: BigInt(json.preVerificationGas),
