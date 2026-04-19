@@ -5,7 +5,7 @@
 
 specVersion: 1.0.0
 description: YieldPilot — ERC-4626 vault events
-repository: https://github.com/nawarhisso/yield-pilot
+repository: https://github.com/nawar-hisso/yield-pilot
 schema:
   file: ./schema.graphql
 

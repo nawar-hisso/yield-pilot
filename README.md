@@ -209,6 +209,12 @@ DIRECT_URL=postgresql://dev:dev@localhost:5432/yield-pilot
 # === Paymaster policy (tunable, safe testnet defaults) ===
 PAYMASTER_DAILY_GLOBAL_CAP_WEI=50000000000000000     # 0.05 ETH / day total
 PAYMASTER_DAILY_PER_SENDER_CAP_WEI=10000000000000000 # 0.01 ETH / day per sender
+
+# === Subgraph query endpoints (my deployed read-only copies) ===
+# These let you run the app without deploying your own subgraph — you're
+# querying my Sepolia deployment. To index your own vault, see the
+# "Deploying the subgraph" section.
+NEXT_PUBLIC_SUBGRAPH_URL_SEPOLIA=https://api.studio.thegraph.com/query/1748410/yield-pilot/v0.0.4
 ```
 
 **Deployed contract addresses** — every `*_ADDRESS*` key is a public
@@ -230,8 +236,7 @@ mine. Free tiers on testnets are plenty for a dev setup.
 |---|---|---|
 | `NEXT_PUBLIC_REOWN_PROJECT_ID` | [cloud.reown.com](https://cloud.reown.com) → new project | web |
 | `NEXT_PUBLIC_PIMLICO_API_KEY` | [dashboard.pimlico.io](https://dashboard.pimlico.io) → new key | web |
-| `STUDIO_SLUG` | [thegraph.com/studio](https://thegraph.com/studio) → new subgraph | subgraph |
-| `NEXT_PUBLIC_SUBGRAPH_URL_SEPOLIA` | Emitted by `pnpm -F @yield-pilot/subgraph deploy` | web |
+| `STUDIO_SLUG` | [thegraph.com/studio](https://thegraph.com/studio) → new subgraph *(only needed if you deploy your own subgraph)* | subgraph |
 
 ### 🚫 Secrets — **never** commit or share
 
