@@ -17,16 +17,26 @@ interface PairSession {
   nonce: string;
   host?: WebSocket;
   guest?: WebSocket;
+  /** Short-window reconnect grace: when a peer closes, we schedule a
+   *  `pair:closed` notification to the other peer but cancel it if the same
+   *  role re-joins within GRACE_MS. Handles React strict-mode double-mount,
+   *  quick tab switches, and transient network blips without nuking the
+   *  pairing session. */
+  hostCloseTimer?: NodeJS.Timeout;
+  guestCloseTimer?: NodeJS.Timeout;
   createdAt: number;
 }
 
 const sessions = new Map<string, PairSession>();
 const TTL_MS = 5 * 60 * 1000;
+const GRACE_MS = 2_500;
 
 function cleanupExpired(): void {
   const now = Date.now();
   for (const [nonce, s] of sessions) {
     if (now - s.createdAt > TTL_MS) {
+      if (s.hostCloseTimer) clearTimeout(s.hostCloseTimer);
+      if (s.guestCloseTimer) clearTimeout(s.guestCloseTimer);
       try { s.host?.close(4408, "expired"); } catch {}
       try { s.guest?.close(4408, "expired"); } catch {}
       sessions.delete(nonce);
@@ -78,9 +88,18 @@ export function attachPairWs(_server: http.Server, path: string): WebSocketServe
         }
         if (role === "host") {
           if (session.host) { ws.close(4409, "host already joined"); return; }
+          // Cancel any pending close notification — re-join within grace window.
+          if (session.hostCloseTimer) {
+            clearTimeout(session.hostCloseTimer);
+            session.hostCloseTimer = undefined;
+          }
           session.host = ws;
         } else {
           if (session.guest) { ws.close(4409, "guest already joined"); return; }
+          if (session.guestCloseTimer) {
+            clearTimeout(session.guestCloseTimer);
+            session.guestCloseTimer = undefined;
+          }
           session.guest = ws;
         }
         myNonce = nonce;
@@ -110,12 +129,27 @@ export function attachPairWs(_server: http.Server, path: string): WebSocketServe
       if (!myNonce) return;
       const session = sessions.get(myNonce);
       if (!session) return;
-      if (myRole === "host") session.host = undefined;
-      else if (myRole === "guest") session.guest = undefined;
-      // Tell the remaining peer the session is dead.
-      const peer = myRole === "host" ? session.guest : session.host;
-      try { peer?.send(JSON.stringify({ type: "pair:closed", reason: "peer disconnected" })); } catch {}
-      if (!session.host && !session.guest) sessions.delete(myNonce);
+      const closedRole = myRole;
+      if (closedRole === "host") session.host = undefined;
+      else if (closedRole === "guest") session.guest = undefined;
+
+      // Schedule a pair:closed notification after a short grace window so
+      // brief reconnects (React strict-mode double-mount, tab switches, etc.)
+      // don't tear down the pairing session. The join handler cancels the
+      // timer if the same role re-joins in time.
+      const timer = setTimeout(() => {
+        const s = sessions.get(myNonce!);
+        if (!s) return;
+        // Still closed after the grace window? Notify the peer.
+        const stillClosed = closedRole === "host" ? !s.host : !s.guest;
+        if (!stillClosed) return;
+        const peer = closedRole === "host" ? s.guest : s.host;
+        try { peer?.send(JSON.stringify({ type: "pair:closed", reason: "peer disconnected" })); } catch {}
+        if (!s.host && !s.guest) sessions.delete(myNonce!);
+      }, GRACE_MS);
+
+      if (closedRole === "host") session.hostCloseTimer = timer;
+      else if (closedRole === "guest") session.guestCloseTimer = timer;
     });
   });
 
