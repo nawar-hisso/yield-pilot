@@ -1,8 +1,13 @@
 import { Router, type Router as ExpressRouter } from "express";
 import { z } from "zod";
-import { getAddress, slice, type Hex, type Address } from "viem";
+import { decodeAbiParameters, getAddress, parseAbiParameters, slice, type Hex, type Address } from "viem";
 import { buildSponsorship, getPaymasterSignerAddress } from "../services/paymaster-signer.js";
-import { evaluatePolicy, recordCharge } from "../services/paymaster-policy.js";
+import {
+  evaluatePolicy,
+  recordCharge,
+  EXECUTE_SELECTOR,
+  EXECUTE_BATCH_SELECTOR,
+} from "../services/paymaster-policy.js";
 import { logger } from "../logger.js";
 
 export const paymasterRouter: ExpressRouter = Router();
@@ -47,10 +52,34 @@ const sponsorBody = z.object({
   validUntil: z.number().int().positive().optional(),
 });
 
-// callData layout: selector(4) + target(32, left-padded) + ...
-//   0x | selector(8 hex) | pad(24 hex) | target(40 hex) | ...
-// Minimum: "0x" + 4 + 32 = 72 hex chars.
+// Minimum length for a single execute(address,uint256,bytes) call: 4 + 32 bytes
+// (selector + target) = 72 hex chars + "0x".
 const MIN_EXECUTE_CALLDATA_HEX = 2 + 8 + 64;
+
+/** Decode ALL call targets from a UserOp.callData. One entry for `execute`,
+ *  N for `executeBatch`. Throws on malformed input. */
+function extractTargets(callData: Hex): { selector: Hex; targets: Address[] } {
+  const selector = slice(callData, 0, 4);
+  if (selector === EXECUTE_SELECTOR) {
+    if (callData.length < MIN_EXECUTE_CALLDATA_HEX) {
+      throw new Error("callData too short for execute(address,...)");
+    }
+    const targetSlot = slice(callData, 4, 36);
+    const targetBytes = ("0x" + targetSlot.slice(2 + 24)) as Address;
+    return { selector, targets: [getAddress(targetBytes)] };
+  }
+  if (selector === EXECUTE_BATCH_SELECTOR) {
+    const args = ("0x" + callData.slice(10)) as Hex;
+    const [targetsRaw] = decodeAbiParameters(
+      parseAbiParameters("address[], uint256[], bytes[]"),
+      args,
+    );
+    const targets = (targetsRaw as readonly Address[]).map((t) => getAddress(t));
+    if (targets.length === 0) throw new Error("executeBatch targets array is empty");
+    return { selector, targets };
+  }
+  throw new Error(`unsupported selector ${selector}`);
+}
 
 paymasterRouter.get("/signer", (_req, res) => {
   try {
@@ -80,32 +109,26 @@ paymasterRouter.post("/sponsor", async (req, res) => {
     paymasterPostOpGasLimit,
   } = parsed.data;
 
-  // Extract target + selector from the execute(address,uint256,bytes) call.
-  if (userOp.callData.length < MIN_EXECUTE_CALLDATA_HEX) {
-    return res.status(400).json({ error: "callData too short for execute(address,...)" });
-  }
-  const selector = slice(userOp.callData, 0, 4);
-  let target: Address;
+  // Extract the selector + all targets. `executeBatch` carries multiple, so
+  // we hand evaluatePolicy() an array and let it allow-list each one.
+  let selector: Hex;
+  let targets: Address[];
   try {
-    // Use viem.slice to pull the 32-byte arg slot, then narrow to the last 20
-    // bytes and checksum. Rejects dirty top bytes via getAddress parse.
-    const targetSlot = slice(userOp.callData, 4, 36);
-    const targetBytes = ("0x" + targetSlot.slice(2 + 24)) as Address;
-    target = getAddress(targetBytes);
+    ({ selector, targets } = extractTargets(userOp.callData));
   } catch (err) {
-    return res.status(400).json({ error: "bad target in callData", reason: (err as Error).message });
+    return res.status(400).json({ error: "bad callData", reason: (err as Error).message });
   }
 
   const policy = evaluatePolicy({
     chainId,
-    target,
+    targets,
     selector,
     sender: userOp.sender,
     preVerificationGas: userOp.preVerificationGas,
     maxCost,
   });
   if (!policy.ok) {
-    logger.warn({ chainId, target, reason: policy.reason }, "sponsorship rejected");
+    logger.warn({ chainId, targets, reason: policy.reason }, "sponsorship rejected");
     return res.status(403).json({ error: "policy rejected", reason: policy.reason });
   }
 
@@ -127,6 +150,21 @@ paymasterRouter.post("/sponsor", async (req, res) => {
       validAfter,
     });
     recordCharge(userOp.sender, maxCost);
+    logger.info(
+      {
+        sender: userOp.sender,
+        nonce: userOp.nonce.toString(),
+        hasInitCode: userOp.initCode !== "0x",
+        initCodePrefix: userOp.initCode.slice(0, 42),
+        callDataPrefix: userOp.callData.slice(0, 74),
+        accountGasLimits: userOp.accountGasLimits,
+        preVerificationGas: userOp.preVerificationGas.toString(),
+        gasFees: userOp.gasFees,
+        paymasterAndData: out.paymasterAndData,
+        hash: out.hash,
+      },
+      "sponsor signed",
+    );
     return res.json({
       paymasterAndData: out.paymasterAndData,
       validUntil: out.validUntil,

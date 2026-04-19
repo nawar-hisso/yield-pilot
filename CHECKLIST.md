@@ -72,8 +72,8 @@ Last verified commit: `da6be6d` (Sepolia, chain 11155111).
 
 ### P0 — unblocks full vault demo
 
-- [ ] **Passkey withdraw** — mirror `useDeposit`'s passkey branch. 15 min. File: `apps/web/hooks/useWithdraw.ts`
-- [ ] **Atomic passkey deposit** — patch `Paymaster.sol` to accept `executeBatch` selector; redeploy. 1 hr. Avoids 2-Touch-ID round trip on first deposit
+- [x] **Passkey withdraw** — mirror `useDeposit`'s passkey branch. File: `apps/web/hooks/useWithdraw.ts`
+- [x] **Atomic passkey deposit** — Paymaster now accepts `executeBatch`; first deposit = 1 Touch ID
 
 ### P1 — portfolio completeness
 
@@ -105,8 +105,8 @@ Last verified commit: `da6be6d` (Sepolia, chain 11155111).
 
 ## 📌 Notes
 
-- On-chain setup is done: Paymaster `0xFd86…4Bc9`, Vault `0x4662…50AF`, Factory `0xe38f…7AC9`, USDC `0x2a04…7BDc`.
-- Shared smart account under test: `0xA08a68b9D9ecffE59A7A41eB8dB08924104d2e4f` — currently holds 100k mUSDC, 6 authorized keys.
+- On-chain setup is done: Paymaster `0xa774…90B2` (batch-aware, redeploy 2026-04-20), Vault `0x4662…50AF`, Factory `0xe38f…7AC9`, USDC `0x2a04…7BDc`.
+- Shared smart account under test: `0xA08a68b9D9ecffE59A7A41eB8dB08924104d2e4f` — currently holds 100k mUSDC, 6 authorized keys. Pre-allowed in the new paymaster via `setAllowedSender` so it keeps working without redeploying the account.
 - Paymaster allowed targets (on-chain `setTarget = true`): Vault, USDC, any smart account self-call.
 - Paymaster off-chain policy (`apps/api/src/services/paymaster-policy.ts`) matches the on-chain list; daily caps per sender.
-- Passkey deposits currently **two sequential UserOps** (approve-max, then deposit) because the paymaster rejects `executeBatch` selector. Subsequent deposits reuse the max allowance → 1 UserOp.
+- Passkey deposits are now a **single UserOp via `executeBatch`** (atomic approve + deposit). First deposit = 1 Touch ID.

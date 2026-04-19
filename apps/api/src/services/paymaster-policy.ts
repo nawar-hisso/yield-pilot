@@ -9,7 +9,12 @@ import { logger } from "../logger.js";
 
 export interface PolicyInput {
   chainId: number;
-  target: `0x${string}`;          // decoded from callData (execute target)
+  /**
+   * All call targets extracted from the UserOp. One entry for `execute`, N for
+   * `executeBatch`. Every entry must pass the allow-list check; a hostile
+   * batch with one bad target is rejected wholesale.
+   */
+  targets: `0x${string}`[];
   selector: Hex;                   // first 4 bytes of callData
   sender: `0x${string}`;          // UserOp.sender (counterfactual / deployed account)
   preVerificationGas: bigint;
@@ -22,6 +27,7 @@ export interface PolicyResult {
 }
 
 const EXECUTE_SELECTOR: Hex = "0xb61d27f6"; // YieldPilotAccount.execute(address,uint256,bytes)
+const EXECUTE_BATCH_SELECTOR: Hex = "0x47e1da2a"; // YieldPilotAccount.executeBatch(address[],uint256[],bytes[])
 
 /** Per-chain allow-list of vault addresses we will sponsor deposits into. */
 function vaultAddressFor(chainId: number): `0x${string}` | null {
@@ -83,8 +89,11 @@ function windowSum(ledger: Charge[]): bigint {
 }
 
 export function evaluatePolicy(input: PolicyInput): PolicyResult {
-  if (input.selector !== EXECUTE_SELECTOR) {
+  if (input.selector !== EXECUTE_SELECTOR && input.selector !== EXECUTE_BATCH_SELECTOR) {
     return { ok: false, reason: `unsupported selector ${input.selector}` };
+  }
+  if (input.targets.length === 0) {
+    return { ok: false, reason: "empty targets list" };
   }
 
   const vault = vaultAddressFor(input.chainId);
@@ -92,23 +101,27 @@ export function evaluatePolicy(input: PolicyInput): PolicyResult {
     return { ok: false, reason: `unsupported chain ${input.chainId}` };
   }
   const usdc = usdcAddressFor(input.chainId);
-  const targetLower = input.target.toLowerCase();
   const senderLower = input.sender.toLowerCase();
-  const isVaultCall = targetLower === vault;
-  // Self-calls (addAuthorizedKey / revokeKey) go through
-  // account.execute(address(this), 0, ...). They're safe to sponsor because
-  // the account contract gates those entrypoints with `onlySelf`, so the
-  // caller must have already signed a valid UserOp with a registered key.
-  const isSelfCall = targetLower === senderLower;
-  // USDC approve UserOps target the token contract directly. We sponsor
-  // these so first-time passkey depositors can set max allowance without
-  // holding ETH.
-  const isUsdcCall = usdc !== null && targetLower === usdc;
-  if (!isVaultCall && !isSelfCall && !isUsdcCall) {
-    return {
-      ok: false,
-      reason: `target ${input.target} is not the vault (${vault}), USDC (${usdc}), or a self-call (sender ${input.sender})`,
-    };
+  // Every target in the batch must independently pass. A single bad target
+  // fails the whole request — matches the on-chain behaviour.
+  for (const target of input.targets) {
+    const targetLower = target.toLowerCase();
+    const isVaultCall = targetLower === vault;
+    // Self-calls (addAuthorizedKey / revokeKey) go through
+    // account.execute(address(this), 0, ...). They're safe to sponsor because
+    // the account contract gates those entrypoints with `onlySelf`, so the
+    // caller must have already signed a valid UserOp with a registered key.
+    const isSelfCall = targetLower === senderLower;
+    // USDC approve UserOps target the token contract directly. We sponsor
+    // these so first-time passkey depositors can set max allowance without
+    // holding ETH.
+    const isUsdcCall = usdc !== null && targetLower === usdc;
+    if (!isVaultCall && !isSelfCall && !isUsdcCall) {
+      return {
+        ok: false,
+        reason: `target ${target} is not the vault (${vault}), USDC (${usdc}), or a self-call (sender ${input.sender})`,
+      };
+    }
   }
 
   if (input.maxCost > MAX_SPONSORED_WEI) {
@@ -135,7 +148,7 @@ export function evaluatePolicy(input: PolicyInput): PolicyResult {
   }
 
   logger.debug(
-    { chainId: input.chainId, sender: input.sender, target: input.target, maxCost: input.maxCost.toString() },
+    { chainId: input.chainId, sender: input.sender, targets: input.targets, maxCost: input.maxCost.toString() },
     "policy pass",
   );
   return { ok: true };
@@ -161,4 +174,4 @@ export function __resetPolicyStateForTests(): void {
   senderLedgers.clear();
 }
 
-export { EXECUTE_SELECTOR, DAILY_GLOBAL_CAP_WEI, DAILY_PER_SENDER_CAP_WEI };
+export { EXECUTE_SELECTOR, EXECUTE_BATCH_SELECTOR, DAILY_GLOBAL_CAP_WEI, DAILY_PER_SENDER_CAP_WEI };

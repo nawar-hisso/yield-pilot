@@ -8,7 +8,7 @@ import { contractsFor } from "../lib/contracts";
 import { publicClient } from "../lib/viem";
 import { useWallet } from "./useWallet";
 import { useTxState } from "./useTxState";
-import { executeCalldata, stringToBytes32 } from "../lib/account";
+import { executeBatchCalldata, executeCalldata, stringToBytes32 } from "../lib/account";
 import { buildAndSendUserOp, waitForUserOpReceipt } from "../lib/userop";
 import { usePasskeyAccount } from "../src/providers/PasskeyAccountProvider";
 
@@ -67,10 +67,10 @@ export function useDeposit() {
           throw new Error("Passkey account not ready");
         }
 
-        // The paymaster only sponsors single `execute()` calls (not
-        // `executeBatch`). When allowance is insufficient we run TWO UserOps
-        // sequentially: approve-max then deposit. First deposit: 2 Touch IDs.
-        // Subsequent deposits reuse the max allowance → 1 Touch ID.
+        // Atomic path: when allowance is insufficient we batch
+        // [approve-max, deposit] into a single `executeBatch` UserOp. The
+        // paymaster now sponsors both selectors, so first-time and repeat
+        // deposits are both a single Touch ID.
         const initCodeArgs = {
           factory: accountFactory as Address,
           credIdHash: passkey.passkey.credIdHash as Hex,
@@ -96,33 +96,31 @@ export function useDeposit() {
         });
 
         try {
+          const depositData = encodeFunctionData({
+            abi: YieldVaultAbi,
+            functionName: "deposit",
+            args: [assets, passkey.address],
+          });
+
+          let callData: Hex;
           if (currentAllowance < assets) {
             const approveData = encodeFunctionData({
               abi: MockUsdcAbi,
               functionName: "approve",
               args: [vault as Address, maxUint256],
             });
-            const approveCallData = executeCalldata(usdc as Address, 0n, approveData);
-            const approveUserOpHash = await buildAndSendUserOp({
-              sender: passkey.address as Address,
-              callData: approveCallData,
-              chainId,
-              paymaster: paymaster as Address,
-              credentialId: passkey.passkey.credentialId,
-              initCodeArgs,
-            });
-            await waitForUserOpReceipt(approveUserOpHash, chainId);
+            callData = executeBatchCalldata(
+              [usdc as Address, vault as Address],
+              [0n, 0n],
+              [approveData, depositData],
+            );
+          } else {
+            callData = executeCalldata(vault as Address, 0n, depositData);
           }
 
-          const depositData = encodeFunctionData({
-            abi: YieldVaultAbi,
-            functionName: "deposit",
-            args: [assets, passkey.address],
-          });
-          const depositCallData = executeCalldata(vault as Address, 0n, depositData);
           const depositUserOpHash = await buildAndSendUserOp({
             sender: passkey.address as Address,
-            callData: depositCallData,
+            callData,
             chainId,
             paymaster: paymaster as Address,
             credentialId: passkey.passkey.credentialId,

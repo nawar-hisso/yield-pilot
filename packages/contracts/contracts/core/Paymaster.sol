@@ -71,6 +71,12 @@ contract Paymaster is BasePaymaster {
     /// @notice Selector of `YieldPilotAccount.execute(address,uint256,bytes)`.
     bytes4 public constant EXECUTE_SELECTOR = bytes4(keccak256("execute(address,uint256,bytes)"));
 
+    /// @notice Selector of `YieldPilotAccount.executeBatch(address[],uint256[],bytes[])`.
+    ///         Sponsored so first-time deposits can atomically approve + deposit
+    ///         in a single UserOp (one Touch ID instead of two).
+    bytes4 public constant EXECUTE_BATCH_SELECTOR =
+        bytes4(keccak256("executeBatch(address[],uint256[],bytes[])"));
+
     uint256 private constant VALID_UNTIL_OFFSET = UserOperationLib.PAYMASTER_DATA_OFFSET; // 52
     uint256 private constant VALID_AFTER_OFFSET = VALID_UNTIL_OFFSET + 6;                   // 58
     uint256 private constant SIG_OFFSET = VALID_AFTER_OFFSET + 6;                           // 64
@@ -146,12 +152,39 @@ contract Paymaster is BasePaymaster {
         bytes32, /* userOpHash */
         uint256 maxCost
     ) internal override returns (bytes memory context, uint256 validationData) {
-        // 1. Enforce call shape: only account.execute(target, value, data) is sponsored.
-        if (userOp.callData.length < 36) revert Paymaster__InvalidData();
+        // 1. Enforce call shape. Sponsored selectors:
+        //      execute(address,uint256,bytes)                  — single call.
+        //      executeBatch(address[],uint256[],bytes[])       — atomic batch.
+        //    For a batch we require EVERY target to be whitelisted; a hostile
+        //    account contract can't sneak in an unallowed call that way.
+        if (userOp.callData.length < 4) revert Paymaster__InvalidData();
         bytes4 selector = bytes4(userOp.callData[:4]);
-        if (selector != EXECUTE_SELECTOR) revert Paymaster__UnsupportedSelector(selector);
-        address target = address(uint160(uint256(bytes32(userOp.callData[4:36]))));
-        if (!allowedTargets[target]) revert Paymaster__TargetNotAllowed(target);
+        address primaryTarget;
+        if (selector == EXECUTE_SELECTOR) {
+            if (userOp.callData.length < 36) revert Paymaster__InvalidData();
+            primaryTarget = address(uint160(uint256(bytes32(userOp.callData[4:36]))));
+            if (!allowedTargets[primaryTarget]) revert Paymaster__TargetNotAllowed(primaryTarget);
+        } else if (selector == EXECUTE_BATCH_SELECTOR) {
+            // abi.decode copies into memory (bounded by user-supplied array
+            // length, which is self-rate-limited because the caller pays for
+            // its own validation gas). We only need `targets` — `values` /
+            // `data` are already committed to via keccak256(callData) in the
+            // signed `getHash`, so tampering them would break the signature.
+            (address[] memory targets, , ) = abi.decode(
+                userOp.callData[4:],
+                (address[], uint256[], bytes[])
+            );
+            uint256 len = targets.length;
+            if (len == 0) revert Paymaster__InvalidData();
+            for (uint256 i = 0; i < len; ) {
+                address t = targets[i];
+                if (!allowedTargets[t]) revert Paymaster__TargetNotAllowed(t);
+                unchecked { ++i; }
+            }
+            primaryTarget = targets[0];
+        } else {
+            revert Paymaster__UnsupportedSelector(selector);
+        }
 
         // 2. Bind sponsorship to a known sender — either an already-seen clone
         //    or a fresh clone being deployed via an approved factory.
@@ -185,7 +218,7 @@ contract Paymaster is BasePaymaster {
         bool sigFailed = err != ECDSA.RecoverError.NoError || recovered != verifier;
 
         validationData = _packValidationData(sigFailed, validUntil, validAfter);
-        context = abi.encode(sender, target, maxCost);
+        context = abi.encode(sender, primaryTarget, maxCost);
     }
 
     function _postOp(
