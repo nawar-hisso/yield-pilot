@@ -22,8 +22,6 @@ export const metadata: Metadata = {
   description: "Deposit, delegate, and track yield strategies from one dashboard.",
 };
 
-export const dynamic = "force-dynamic";
-
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="dark">
