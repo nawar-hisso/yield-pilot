@@ -39,9 +39,33 @@ import { signUserOpHash } from "./passkey";
 
 export const ENTRY_POINT_V07 = "0x0000000071727De22E5E9d8BAf0edAc6f37da032" as const;
 
-/** Dummy signature used during gas estimation. 200 bytes of 0xff mimics a real
- *  passkey envelope well enough for the bundler to estimate verification gas. */
-const DUMMY_SIGNATURE = ("0x" + "ff".repeat(200)) as Hex;
+/**
+ * Dummy signature used during gas estimation. MUST decode cleanly against
+ * `abi.decode(sig, (bytes32, bytes, bytes, bytes32, bytes32))` — otherwise
+ * the account reverts (AA23) instead of returning SIG_VALIDATION_FAILED (AA24),
+ * and most bundlers treat AA23 as a hard fail during estimation.
+ *
+ * Shape: credId=0, authData=37 bytes with UP flag set, clientDataJSON is a
+ * minimal valid JSON, r/s = 0. k.active lookup for credId==0 returns false,
+ * the contract returns SIG_VALIDATION_FAILED cleanly, and the bundler still
+ * estimates the verification-gas path (worst-case precompile call is skipped
+ * but the decode + lookup + flag check are included).
+ */
+function buildDummySignature(): Hex {
+  const credIdHash = ("0x" + "00".repeat(32)) as Hex;
+  const authData = new Uint8Array(37);
+  authData[32] = 0x01; // UP flag
+  const clientDataJSON = new TextEncoder().encode('{"type":"webauthn.get","challenge":"","origin":""}');
+  const r = ("0x" + "00".repeat(32)) as Hex;
+  const s = ("0x" + "00".repeat(32)) as Hex;
+  return encodePasskeySignature({
+    credIdHash,
+    authenticatorData: authData,
+    clientDataJSON,
+    r,
+    s,
+  });
+}
 
 /** Size of the pre-verification gas buffer we add on top of the bundler estimate
  *  to cover the paymaster signing overhead + any mempool-time gas variance. */
@@ -199,7 +223,7 @@ export async function buildAndSendUserOp(args: BuildAndSendArgs): Promise<Hex> {
     preVerificationGas: 60_000n,
     gasFees: dummyGasFees,
     paymasterAndData: "0x",
-    signature: DUMMY_SIGNATURE,
+    signature: buildDummySignature(),
   });
 
   const accountGasLimits = packAccountGasLimits(
