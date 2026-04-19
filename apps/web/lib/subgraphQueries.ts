@@ -306,20 +306,25 @@ export async function fetchSharePriceSeries(
 }
 
 /**
- * Annualised APY between the first + last snapshot in `points`. Uses simple
+ * Annualised APY between the first + last snapshot in `points`. Simple
  * (non-compounding) rate: APY = (endPrice / startPrice − 1) × (year / span).
- * Returns null when there's < 2 points or the span is too short to be
- * meaningful (< 1 hour).
+ *
+ * Returns `{ value, spanSeconds }` so the caller can label early-sample noise.
+ * Null when there's < 2 points, the first price is zero (subgraph race), or
+ * the span is under 30 seconds (below that the reading is dominated by block-
+ * time quantisation).
  */
-export function computeApyFromSharePrice(points: SharePricePoint[]): number | null {
+export function computeApyFromSharePrice(
+  points: SharePricePoint[],
+): { value: number; spanSeconds: number } | null {
   if (points.length < 2) return null;
   const first = points[0]!;
   const last = points[points.length - 1]!;
   const spanSeconds = last.ts - first.ts;
-  if (spanSeconds < 3600) return null; // avoid noisy early readings
+  if (spanSeconds < 30) return null;
   if (first.priceE18 === 0n) return null;
   const SECONDS_PER_YEAR = 31_557_600;
   // growth = (last − first) / first, scaled via 1e18 denominators for precision.
   const growthBps = Number(((last.priceE18 - first.priceE18) * 1_000_000n) / first.priceE18) / 10_000;
-  return growthBps * (SECONDS_PER_YEAR / spanSeconds);
+  return { value: growthBps * (SECONDS_PER_YEAR / spanSeconds), spanSeconds };
 }

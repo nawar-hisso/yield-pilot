@@ -66,10 +66,13 @@ export function DashboardOverview() {
   /** Prefer share-price APY (true realised yield). Fall back to a TVL-inflow
    *  proxy when the subgraph hasn't indexed SharePriceSnapshot yet — better
    *  than showing "—" during the transition window. `source` drives the
-   *  hint text so users know which path they're seeing. */
-  const { value: apy, source: apySource } = useMemo(() => {
+   *  hint text so users know which path they're seeing; `spanSeconds` lets
+   *  us label early-window readings as noisy. */
+  const { value: apy, source: apySource, spanSeconds } = useMemo(() => {
     const sp = sharePriceSeries ? computeApyFromSharePrice(sharePriceSeries) : null;
-    if (sp !== null) return { value: sp, source: "share-price" as const };
+    if (sp !== null) {
+      return { value: sp.value, source: "share-price" as const, spanSeconds: sp.spanSeconds };
+    }
     if (dailyTvl && dailyTvl.length >= 2) {
       const first = dailyTvl[0]!;
       const last = dailyTvl[dailyTvl.length - 1]!;
@@ -78,11 +81,15 @@ export function DashboardOverview() {
         const years = (last.day - first.day) / 31_557_600;
         if (years > 0) {
           const proxy = Math.max(0, Math.min(25, (growth / years) * 100));
-          return { value: Number(proxy.toFixed(2)), source: "tvl-inflow" as const };
+          return {
+            value: Number(proxy.toFixed(2)),
+            source: "tvl-inflow" as const,
+            spanSeconds: last.day - first.day,
+          };
         }
       }
     }
-    return { value: null as number | null, source: "none" as const };
+    return { value: null as number | null, source: "none" as const, spanSeconds: 0 };
   }, [sharePriceSeries, dailyTvl]);
   const heroRef = useRef<HTMLDivElement>(null);
 
@@ -297,9 +304,11 @@ export function DashboardOverview() {
           }
           hint={
             apy === null
-              ? "Needs 1+ hour of snapshots"
+              ? "Waiting for 2+ snapshots"
               : apySource === "share-price"
-                ? "Realised share-price growth"
+                ? spanSeconds < 3600
+                  ? `Early sample (${Math.max(1, Math.round(spanSeconds / 60))}m) — will stabilise with more txns`
+                  : "Realised share-price growth"
                 : "Inflow proxy · redeploy subgraph for realised APY"
           }
           icon={Percent}

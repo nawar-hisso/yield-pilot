@@ -36,7 +36,11 @@ function apyFromSharePrice(points: SharePricePoint[]): Point[] {
       const growthBps = Number(((p.priceE18 - first.priceE18) * 1_000_000n) / first.priceE18) / 10_000;
       apy = growthBps * (SECONDS_PER_YEAR / elapsed);
     }
-    apy = Math.max(-25, Math.min(25, apy));
+    // Clamp to a wide band — 500%+ APY is realistic when APY_BPS is cranked
+    // for demos, but a short sample can still annualise into the tens of
+    // thousands. The ceiling keeps one pathological point from stretching
+    // the Y-axis to meaninglessness.
+    apy = Math.max(-50, Math.min(10_000, apy));
     const d = new Date(p.ts * 1000);
     out.push({
       ts: p.ts,
