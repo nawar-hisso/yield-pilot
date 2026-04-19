@@ -10,6 +10,7 @@ import {
   Users,
   ShieldCheck,
   Settings,
+  Droplet,
   PanelLeftClose,
   PanelLeft,
 } from "lucide-react";
@@ -18,6 +19,7 @@ import { cn } from "../../lib/utils";
 const NAV = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/vault", label: "Vault", icon: Vault },
+  { href: "/faucet", label: "Faucet", icon: Droplet },
   { href: "/delegate", label: "Delegate", icon: Users },
   { href: "/multisig", label: "Multi-sig", icon: ShieldCheck },
   { href: "/settings", label: "Settings", icon: Settings },

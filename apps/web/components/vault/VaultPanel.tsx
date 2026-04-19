@@ -5,7 +5,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { VaultStatsBar } from "./VaultStatsBar";
 import { DepositForm } from "./DepositForm";
 import { WithdrawForm } from "./WithdrawForm";
-import { FaucetButton } from "./FaucetButton";
 import { ClientOnly } from "../shared/ClientOnly";
 import { useWallet } from "../../hooks/useWallet";
 
@@ -19,8 +18,6 @@ function VaultPanelBody() {
       </header>
 
       <VaultStatsBar />
-
-      {wallet.isConnected && wallet.walletType === "eoa" ? <FaucetButton /> : null}
 
       <Card>
         <CardContent className="pt-6">
