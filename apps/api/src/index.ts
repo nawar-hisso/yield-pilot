@@ -9,6 +9,7 @@ import { userRouter } from "./routes/user.js";
 import { paymasterRouter } from "./routes/paymaster.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { attachWs } from "./ws/server.js";
+import { attachPairWs } from "./ws/pair.js";
 
 const env = apiEnvSchema.parse(process.env);
 
@@ -29,6 +30,7 @@ app.use(errorHandler);
 
 const server = http.createServer(app);
 attachWs(server, env.WS_PATH);
+attachPairWs(server, "/ws/pair");
 
 server.listen(env.API_PORT, () => {
   logger.info(

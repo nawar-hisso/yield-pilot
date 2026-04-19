@@ -1,6 +1,7 @@
 "use client";
 
-import { Wallet, Fingerprint } from "lucide-react";
+import { useState } from "react";
+import { Wallet, Fingerprint, Link2 } from "lucide-react";
 import { useWallet } from "../../hooks/useWallet";
 import {
   Dialog,
@@ -10,6 +11,7 @@ import {
   DialogTitle,
 } from "../ui/dialog";
 import { cn } from "../../lib/utils";
+import { JoinDeviceDialog } from "./JoinDeviceDialog";
 
 /**
  * Two-card chooser: "Use my wallet" (Reown AppKit) vs "Create smart account"
@@ -18,38 +20,52 @@ import { cn } from "../../lib/utils";
  */
 export function ConnectChooserDialog() {
   const wallet = useWallet();
+  const [joinOpen, setJoinOpen] = useState(false);
 
   return (
-    <Dialog open={wallet.chooserOpen} onOpenChange={(open) => (open ? wallet.openChooser() : wallet.closeChooser())}>
-      <DialogContent className="sm:max-w-[560px]">
-        <DialogHeader>
-          <DialogTitle>Connect to YieldPilot</DialogTitle>
-          <DialogDescription>
-            Pick how you want to get started. Both paths work with the same app — you can switch later.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 sm:grid-cols-2 mt-2">
-          <ChoiceCard
-            icon={<Wallet className="h-6 w-6" aria-hidden />}
-            title="Use my wallet"
-            subtitle="MetaMask, Rainbow, Coinbase, WalletConnect"
-            onClick={wallet.chooseEoa}
-            accent={false}
-          />
-          <ChoiceCard
-            icon={<Fingerprint className="h-6 w-6" aria-hidden />}
-            title={wallet.hasPasskey ? "Continue with passkey" : "Create smart account"}
-            subtitle={
-              wallet.hasPasskey
-                ? "Reuse your existing passkey — same smart-account address."
-                : "Use Face ID or Touch ID — no wallet required. Gasless deposits."
-            }
-            onClick={() => void wallet.choosePasskey()}
-            accent
-          />
-        </div>
-      </DialogContent>
-    </Dialog>
+    <>
+      <Dialog open={wallet.chooserOpen} onOpenChange={(open) => (open ? wallet.openChooser() : wallet.closeChooser())}>
+        <DialogContent className="sm:max-w-[640px]">
+          <DialogHeader>
+            <DialogTitle>Connect to YieldPilot</DialogTitle>
+            <DialogDescription>
+              Pick how you want to get started. All three paths work with the same app.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 sm:grid-cols-3 mt-2">
+            <ChoiceCard
+              icon={<Wallet className="h-6 w-6" aria-hidden />}
+              title="Use my wallet"
+              subtitle="MetaMask, Rainbow, Coinbase, WalletConnect"
+              onClick={wallet.chooseEoa}
+              accent={false}
+            />
+            <ChoiceCard
+              icon={<Fingerprint className="h-6 w-6" aria-hidden />}
+              title={wallet.hasPasskey ? "Continue with passkey" : "Create smart account"}
+              subtitle={
+                wallet.hasPasskey
+                  ? "Reuse your passkey — same address."
+                  : "Face ID / Touch ID. No wallet required."
+              }
+              onClick={() => void wallet.choosePasskey()}
+              accent
+            />
+            <ChoiceCard
+              icon={<Link2 className="h-6 w-6" aria-hidden />}
+              title="Link existing account"
+              subtitle="I have YieldPilot on another device — pair via QR."
+              onClick={() => {
+                wallet.closeChooser();
+                setJoinOpen(true);
+              }}
+              accent={false}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+      <JoinDeviceDialog open={joinOpen} onOpenChange={setJoinOpen} />
+    </>
   );
 }
 

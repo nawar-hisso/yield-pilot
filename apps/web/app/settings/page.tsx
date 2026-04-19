@@ -2,6 +2,7 @@ import { ClientOnly } from "../../components/shared/ClientOnly";
 import { NotificationsCard } from "../../components/settings/NotificationsCard";
 import { NetworkCard } from "../../components/settings/NetworkCard";
 import { AccountCard } from "../../components/settings/AccountCard";
+import { PairedDevicesCard } from "../../components/settings/PairedDevicesCard";
 
 export default function SettingsPage() {
   return (
@@ -19,6 +20,7 @@ export default function SettingsPage() {
           <NotificationsCard />
           <AccountCard />
         </div>
+        <PairedDevicesCard />
         <NetworkCard />
       </section>
     </ClientOnly>
