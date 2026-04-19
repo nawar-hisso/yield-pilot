@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { Activity, Coins, Percent, TrendingUp } from "lucide-react";
+import { useEffect, useMemo, useRef } from "react";
+import { Activity, ArrowDownLeft, ArrowUpRight, Coins, Percent, TrendingUp } from "lucide-react";
 import { formatUnits } from "viem";
+import useSWR from "swr";
 import { StatCard } from "../shared/StatCard";
 import { EmptyState } from "../shared/EmptyState";
 import { NumberTicker } from "../shared/NumberTicker";
@@ -14,6 +15,8 @@ import { useWallet } from "../../hooks/useWallet";
 import { Button } from "../ui/button";
 import { USDC_DECIMALS } from "../../lib/contracts";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { fetchRecentActivity, type VaultActivityEvent } from "../../lib/subgraphQueries";
+import { short } from "../../lib/utils";
 
 function fmt(v: bigint | undefined) {
   if (v === undefined) return "—";
@@ -30,7 +33,29 @@ export function DashboardOverview() {
   const wallet = useWallet();
   const { data: position, isLoading } = useVaultPosition();
   const { last, connected } = useRealtime();
+  const { data: activity } = useSWR<VaultActivityEvent[] | null>(
+    "recent-activity",
+    () => fetchRecentActivity(10),
+    { refreshInterval: 30_000, revalidateOnFocus: false },
+  );
   const heroRef = useRef<HTMLDivElement>(null);
+
+  // priority; fall back to the subgraph-polled activity feed. Always show the
+  // most recent at the top.
+  const feed = useMemo<VaultActivityEvent[]>(() => {
+    const subgraphFeed = activity ?? [];
+    if (last && last.type === "vault.event") {
+      const wsEvent: VaultActivityEvent = {
+        kind: last.payload.kind === "Deposit" ? "Deposit" : "Withdraw",
+        assets: BigInt(last.payload.assets ?? "0"),
+        ts: last.payload.timestamp,
+        user: last.payload.user,
+        txHash: last.payload.txHash,
+      };
+      return [wsEvent, ...subgraphFeed.filter((e) => e.txHash !== wsEvent.txHash)].slice(0, 10);
+    }
+    return subgraphFeed;
+  }, [activity, last]);
 
   useEffect(() => {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -201,13 +226,52 @@ export function DashboardOverview() {
           </span>
         </CardHeader>
         <CardContent>
-          {last ? (
-            <div className="rounded-md border border-border bg-card-muted px-4 py-3 text-sm">
-              <span className="text-accent font-medium">
-                {last.type === "vault.event" ? last.payload.kind : "Safe action"}
-              </span>{" "}
-              received at {new Date().toLocaleTimeString()}
-            </div>
+          {feed.length > 0 ? (
+            <ul className="divide-y divide-border">
+              {feed.map((e) => {
+                const isDeposit = e.kind === "Deposit";
+                const Icon = isDeposit ? ArrowDownLeft : ArrowUpRight;
+                const amount = Number(formatUnits(e.assets, USDC_DECIMALS)).toLocaleString(
+                  undefined,
+                  { maximumFractionDigits: 2 },
+                );
+                return (
+                  <li
+                    key={`${e.txHash}-${e.kind}`}
+                    className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span
+                        aria-hidden
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md border ${
+                          isDeposit
+                            ? "border-success/30 bg-success/10 text-success"
+                            : "border-warning/30 bg-warning/10 text-warning"
+                        }`}
+                      >
+                        <Icon className="h-4 w-4" strokeWidth={1.75} />
+                      </span>
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium">
+                          {e.kind} <span className="font-mono tabular-nums">{amount}</span>{" "}
+                          <span className="text-muted-foreground">mUSDC</span>
+                        </div>
+                        <div className="text-xs text-muted-foreground font-mono">{short(e.user)}</div>
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right text-xs text-muted-foreground">
+                      {new Date(e.ts * 1000).toLocaleString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: false,
+                      })}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
           ) : (
             <EmptyState
               icon={Activity}

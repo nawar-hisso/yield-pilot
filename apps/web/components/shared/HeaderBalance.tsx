@@ -12,7 +12,7 @@ export function HeaderBalance() {
   const wallet = useWallet();
   const { data, isLoading } = useUsdcBalance();
 
-  if (!wallet.isConnected || wallet.walletType === "passkey") return null;
+  if (!wallet.isConnected) return null;
 
   const pretty =
     data !== undefined
@@ -30,7 +30,7 @@ export function HeaderBalance() {
           <span className="text-xs text-muted-foreground">mUSDC</span>
         </div>
       </TooltipTrigger>
-      <TooltipContent>Your deposit asset balance. Use the faucet on /vault to top up.</TooltipContent>
+      <TooltipContent>Your deposit asset balance. Use /faucet to top up.</TooltipContent>
     </Tooltip>
   );
 }

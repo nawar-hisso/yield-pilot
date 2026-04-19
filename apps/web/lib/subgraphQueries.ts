@@ -28,6 +28,14 @@ interface FlowEvent {
   timestamp: string;
 }
 
+export interface VaultActivityEvent {
+  kind: "Deposit" | "Withdraw";
+  assets: bigint;
+  ts: number;
+  user: `0x${string}`;
+  txHash: `0x${string}`;
+}
+
 const FLOW_QUERY = gql`
   query VaultFlows($first: Int!) {
     vaultDeposits(first: $first, orderBy: timestamp, orderDirection: asc) {
@@ -37,6 +45,30 @@ const FLOW_QUERY = gql`
     vaultWithdrawals(first: $first, orderBy: timestamp, orderDirection: asc) {
       assets
       timestamp
+    }
+  }
+`;
+
+interface ActivityEvent {
+  user: string;
+  assets: string;
+  timestamp: string;
+  transactionHash: string;
+}
+
+const RECENT_ACTIVITY_QUERY = gql`
+  query RecentActivity($first: Int!) {
+    vaultDeposits(first: $first, orderBy: timestamp, orderDirection: desc) {
+      user
+      assets
+      timestamp
+      transactionHash
+    }
+    vaultWithdrawals(first: $first, orderBy: timestamp, orderDirection: desc) {
+      user
+      assets
+      timestamp
+      transactionHash
     }
   }
 `;
@@ -139,4 +171,43 @@ export async function fetchDailyTvl(
 
   if (out.length > days + 1) return out.slice(-(days + 1));
   return out;
+}
+
+/**
+ * Fetch the most recent vault deposits and withdrawals, merged into a single
+ * descending timeline. Intended as a stopgap for the Live Activity feed until
+ * so there's no reason to leave the feed empty.
+ */
+export async function fetchRecentActivity(
+  limit = 10,
+  chainId?: number,
+): Promise<VaultActivityEvent[] | null> {
+  try {
+    const client = subgraphClient(chainId);
+    const data = await client.request<{
+      vaultDeposits: ActivityEvent[];
+      vaultWithdrawals: ActivityEvent[];
+    }>(RECENT_ACTIVITY_QUERY, { first: limit });
+
+    const merged: VaultActivityEvent[] = [
+      ...data.vaultDeposits.map((e): VaultActivityEvent => ({
+        kind: "Deposit",
+        assets: BigInt(e.assets),
+        ts: Number(e.timestamp),
+        user: e.user as `0x${string}`,
+        txHash: e.transactionHash as `0x${string}`,
+      })),
+      ...data.vaultWithdrawals.map((e): VaultActivityEvent => ({
+        kind: "Withdraw",
+        assets: BigInt(e.assets),
+        ts: Number(e.timestamp),
+        user: e.user as `0x${string}`,
+        txHash: e.transactionHash as `0x${string}`,
+      })),
+    ];
+    merged.sort((a, b) => b.ts - a.ts);
+    return merged.slice(0, limit);
+  } catch {
+    return null;
+  }
 }
