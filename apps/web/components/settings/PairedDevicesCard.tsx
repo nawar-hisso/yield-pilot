@@ -8,6 +8,7 @@ import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Skeleton } from "../ui/skeleton";
 import { usePairedDevices, type PairedKey } from "../../hooks/usePairedDevices";
+import { useRevokeKey } from "../../hooks/useRevokeKey";
 import { useWallet } from "../../hooks/useWallet";
 import { PairDeviceDialog } from "../wallet/PairDeviceDialog";
 
@@ -73,19 +74,18 @@ export function PairedDevicesCard() {
 }
 
 function DeviceRow({ k, onChanged }: { k: PairedKey; onChanged: () => void }) {
-  const [revoking, setRevoking] = useState(false);
+  const { revoke: submitRevoke, isSigning, isBroadcasting } = useRevokeKey();
+  const busy = isSigning || isBroadcasting;
 
-  async function revoke() {
-    setRevoking(true);
+  async function onRevoke() {
     try {
-      // TODO(sepolia): signs + submits revokeKey UserOp once the bundler is wired.
-      throw new Error(
-        "Revoke requires Sepolia — the Pimlico bundler doesn't serve localhost.",
-      );
+      await submitRevoke(k.credIdHash);
+      toast.success("Device revoked", {
+        description: `${k.nickname || "(unnamed)"} can no longer sign for this account.`,
+      });
     } catch (err) {
       toast.error("Revoke failed", { description: (err as Error).message });
     } finally {
-      setRevoking(false);
       onChanged();
     }
   }
@@ -105,8 +105,8 @@ function DeviceRow({ k, onChanged }: { k: PairedKey; onChanged: () => void }) {
         </div>
       </div>
       {k.active && !k.isPrimary ? (
-        <Button size="sm" variant="outline" disabled={revoking} onClick={revoke}>
-          {revoking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Revoke"}
+        <Button size="sm" variant="outline" disabled={busy} onClick={onRevoke}>
+          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Revoke"}
         </Button>
       ) : null}
     </li>
