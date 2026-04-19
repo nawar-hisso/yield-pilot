@@ -1,0 +1,15 @@
+{
+  "network": "sepolia",
+  "chainId": 11155111,
+  "deployer": "0x3732aaD6B38F7212D74264694b9471A96Be24560",
+  "verifier": "0x06B1C9A87Cfa96134255B824a4945B4642458fEF",
+  "addresses": {
+    "YieldPilotModule#MockAave": "0xaBeC4198F517E25aa7375702eb56aF13e5478e7f",
+    "YieldPilotModule#MockUSDC": "0x2a046e7e9f0a0ce0a466F357adE6ccf171977BDc",
+    "YieldPilotModule#Paymaster": "0xFd865997C431a3886cD23B9CC5BF1d13840b4Bc9",
+    "YieldPilotModule#YieldPilotAccount": "0x4B99773e756bCA1DF5ff9696014db0E25a90916B",
+    "YieldPilotModule#YieldPilotAccountFactory": "0xe38f4049F7C18DE4fC9C48eb102134cC42027AC9",
+    "YieldPilotModule#YieldVault": "0x4662Bd4149CB412E1CdC08E2e3177974c16850AF"
+  },
+  "updatedAt": "2026-04-19T13:47:48.952Z"
+}
