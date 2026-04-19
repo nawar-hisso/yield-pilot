@@ -37,6 +37,18 @@ function vaultAddressFor(chainId: number): `0x${string}` | null {
   return raw.toLowerCase() as `0x${string}`;
 }
 
+/** Per-chain MockUSDC address — approve UserOps target it. */
+function usdcAddressFor(chainId: number): `0x${string}` | null {
+  const raw =
+    chainId === 11155111
+      ? process.env.USDC_ADDRESS_SEPOLIA ?? process.env.MOCK_USDC_ADDRESS_SEPOLIA
+      : chainId === 84532
+        ? process.env.USDC_ADDRESS_BASE_SEPOLIA ?? process.env.MOCK_USDC_ADDRESS_BASE_SEPOLIA
+        : undefined;
+  if (!raw || !/^0x[0-9a-fA-F]{40}$/.test(raw)) return null;
+  return raw.toLowerCase() as `0x${string}`;
+}
+
 /** Hard cap per UserOp — the fattest ZeroDev-style ceiling we'll sponsor at all. */
 const MAX_SPONSORED_WEI = 5_000_000_000_000_000n; // 0.005 ETH
 
@@ -79,6 +91,7 @@ export function evaluatePolicy(input: PolicyInput): PolicyResult {
   if (!vault) {
     return { ok: false, reason: `unsupported chain ${input.chainId}` };
   }
+  const usdc = usdcAddressFor(input.chainId);
   const targetLower = input.target.toLowerCase();
   const senderLower = input.sender.toLowerCase();
   const isVaultCall = targetLower === vault;
@@ -87,10 +100,14 @@ export function evaluatePolicy(input: PolicyInput): PolicyResult {
   // the account contract gates those entrypoints with `onlySelf`, so the
   // caller must have already signed a valid UserOp with a registered key.
   const isSelfCall = targetLower === senderLower;
-  if (!isVaultCall && !isSelfCall) {
+  // USDC approve UserOps target the token contract directly. We sponsor
+  // these so first-time passkey depositors can set max allowance without
+  // holding ETH.
+  const isUsdcCall = usdc !== null && targetLower === usdc;
+  if (!isVaultCall && !isSelfCall && !isUsdcCall) {
     return {
       ok: false,
-      reason: `target ${input.target} is neither the vault (${vault}) nor a self-call (sender ${input.sender})`,
+      reason: `target ${input.target} is not the vault (${vault}), USDC (${usdc}), or a self-call (sender ${input.sender})`,
     };
   }
 
