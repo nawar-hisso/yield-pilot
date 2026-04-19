@@ -122,6 +122,31 @@ export function executeCalldata(target: Address, value: bigint, data: Hex): Hex 
   });
 }
 
+/** `account.executeBatch(targets, values, data)` calldata. */
+export function executeBatchCalldata(
+  targets: Address[],
+  values: bigint[],
+  data: Hex[],
+): Hex {
+  return encodeFunctionData({
+    abi: [
+      {
+        type: "function",
+        name: "executeBatch",
+        inputs: [
+          { name: "targets", type: "address[]" },
+          { name: "values", type: "uint256[]" },
+          { name: "data", type: "bytes[]" },
+        ],
+        outputs: [],
+        stateMutability: "nonpayable",
+      },
+    ],
+    functionName: "executeBatch",
+    args: [targets, values, data],
+  });
+}
+
 /** `account.addAuthorizedKey(credId, x, y, nickname)` calldata. */
 export function addAuthorizedKeyCalldata(
   credIdHash: Hex,
