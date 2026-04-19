@@ -32,7 +32,7 @@ function num(v: bigint | undefined): number {
 export function DashboardOverview() {
   const wallet = useWallet();
   const { data: position, isLoading } = useVaultPosition();
-  const { last, connected } = useRealtime();
+  const { last } = useRealtime();
   const { data: activity } = useSWR<VaultActivityEvent[] | null>(
     "recent-activity",
     () => fetchRecentActivity(10),
@@ -218,11 +218,8 @@ export function DashboardOverview() {
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="font-display">Live activity</CardTitle>
           <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span
-              aria-hidden
-              className={`inline-block h-1.5 w-1.5 rounded-full ${connected ? "bg-success animate-pulse" : "bg-muted-foreground/40"}`}
-            />
-            WebSocket · {connected ? "connected" : "offline"}
+            <span aria-hidden className="inline-block h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
+            Subgraph · 30s poll
           </span>
         </CardHeader>
         <CardContent>
@@ -278,7 +275,7 @@ export function DashboardOverview() {
               title={wallet.isConnected ? "No activity yet" : "Connect to stream events"}
               description={
                 wallet.isConnected
-                  : "Real-time on-chain events stream via the apps/api WebSocket once you're connected."
+                  : "Deposits and withdrawals appear here as soon as the subgraph indexes them."
               }
               action={
                 !wallet.isConnected ? <Button onClick={wallet.openChooser}>Connect</Button> : undefined
