@@ -11,7 +11,7 @@
     "deploy:base-sepolia": "pnpm patch:base-sepolia && graph deploy --studio yield-pilot-base-sepolia",
     "lint": "echo '(subgraph) no lint configured'",
     "typecheck": "echo '(subgraph) assemblyscript — no tsc'",
-    "test": "graph test",
+    "test": "echo '(subgraph) no matchstick tests configured'",
     "clean": "rm -rf build generated .turbo"
   },
   "devDependencies": {
