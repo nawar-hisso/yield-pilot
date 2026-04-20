@@ -159,11 +159,18 @@ contract Paymaster is BasePaymaster {
         //    account contract can't sneak in an unallowed call that way.
         if (userOp.callData.length < 4) revert Paymaster__InvalidData();
         bytes4 selector = bytes4(userOp.callData[:4]);
+        // Self-calls (target == userOp.sender) are implicitly allowed so the
+        // account can sponsor its own management ops (addAuthorizedKey,
+        // revokeKey). Spend is already bounded by per-sender + global daily
+        // caps and the allowedSenders gate.
+        address self = userOp.sender;
         address primaryTarget;
         if (selector == EXECUTE_SELECTOR) {
             if (userOp.callData.length < 36) revert Paymaster__InvalidData();
             primaryTarget = address(uint160(uint256(bytes32(userOp.callData[4:36]))));
-            if (!allowedTargets[primaryTarget]) revert Paymaster__TargetNotAllowed(primaryTarget);
+            if (primaryTarget != self && !allowedTargets[primaryTarget]) {
+                revert Paymaster__TargetNotAllowed(primaryTarget);
+            }
         } else if (selector == EXECUTE_BATCH_SELECTOR) {
             // abi.decode copies into memory (bounded by user-supplied array
             // length, which is self-rate-limited because the caller pays for
@@ -178,7 +185,7 @@ contract Paymaster is BasePaymaster {
             if (len == 0) revert Paymaster__InvalidData();
             for (uint256 i = 0; i < len; ) {
                 address t = targets[i];
-                if (!allowedTargets[t]) revert Paymaster__TargetNotAllowed(t);
+                if (t != self && !allowedTargets[t]) revert Paymaster__TargetNotAllowed(t);
                 unchecked { ++i; }
             }
             primaryTarget = targets[0];
