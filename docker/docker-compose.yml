@@ -19,20 +19,6 @@ services:
       timeout: 3s
       retries: 10
 
-  # Uncomment to run the api container locally (usually easier to run via `pnpm dev`).
-  # api:
-  #   build:
-  #     context: ..
-  #   depends_on:
-  #     db:
-  #       condition: service_healthy
-  #   environment:
-  #     DATABASE_URL: "postgresql://dev:dev@db:5432/yield-pilot"
-  #     API_PORT: "4000"
-  #     CORS_ORIGIN: "http://localhost:3000"
-  #   ports:
-  #     - "4000:4000"
-
   # --- Optional: local subgraph indexer against a running `hardhat node` ---
   # ipfs:
   #   image: ipfs/kubo:latest

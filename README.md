@@ -100,6 +100,7 @@ packages/
   shared/         → env + chain + type utilities
   tsconfig/       → shared tsconfig bases
 
+docker/                → docker-compose for local Postgres
 deployments/           → Ignition deploy snapshots
 ```
 
